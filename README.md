@@ -25,7 +25,7 @@ And all of this, of course, in a "dark mode" or a "dark theme", call it what you
 3) This program is not able to create incremental backups, backups are always full!
 4) This program may not archive data correctly if the file is occupied by another system process;
 5) This program can crash like any other and may incorrectly archive or unarchive your data, so instead of blind trust, when restoring archive copies, make sure that the directory to which you will restore your archive does not contain critical data that needs to be saved;
-6) During recovery, data from the directory to which the data will be restored will be deleted, so it is better to always leave the data archiving checkbox checked before recovery;
+6) Before recovery, data from the directory to which the data will be restored will be deleted, so it is better to always leave the data archiving checkbox checked before recovery;
 7) The archive name can contain only uppercase and lowercase letters, numbers, and the "_" symbol, all other characters will be deleted automatically;
 
 # Prerequisites
