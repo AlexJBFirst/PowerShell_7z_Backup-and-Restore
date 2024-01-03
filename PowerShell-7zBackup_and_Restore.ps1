@@ -68,44 +68,6 @@ function Backup_According_to_day_filter0 {
 	}
 	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 }
-
-If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-	function 7z_save {
-		7z_save0
-	}
-}
-else{
-	function 7z_save{
-		7z_save0
-		if ( Test-Path -Path $SecondBackupFolder ){
-			Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
-			if ( !$? ){
-				Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
-			}
-			Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-		}
-	}
-}
-
-If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-	function Backup_According_to_day_filter {
-		Backup_According_to_day_filter0
-	}
-}
-else{
-	function Backup_According_to_day_filter {
-		Backup_According_to_day_filter0
-		if ( Test-Path -Path $SecondBackupFolder ){
-			if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
-				Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
-				if ( !$? ){
-					Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
-				}
-			}
-		}
-		Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-	}
-}
 #BackupMenu#####################################################################################
 #RestoreMenu####################################################################################
 function 7z_BackupBeforeRestore{
@@ -730,6 +692,8 @@ function AdvancedMenu {
 		(Get-Variable -Name AdvancedMenuBackupNameTextBox -Scope 1).Value.Text = $BackupName
 		(Get-Variable -Name AdvancedMenuBackupAmountTextBox -Scope 1).Value.Text = $NumberOfBackups
 		(Get-Variable -Name AdvancedMenuBackupDayFilterTextBox -Scope 1).Value.Text = $BackupDayFilter
+		$ErrorLabelText = 'Configuration cleanup was successful. Please restart the script.'
+		ErrorForm
 	})
 	#######################################################################################################
 	$AdvancedMenuBackupFolderButton = New-Object System.Windows.Forms.Button
@@ -1167,6 +1131,43 @@ If ([string]::IsNullOrEmpty($args[0])){
 			if ($No7zipResult -eq [System.Windows.Forms.DialogResult]::Ok){
 				Exit
 			}
+		}
+	}
+	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+		function 7z_save {
+			7z_save0
+		}
+	}
+	else{
+		function 7z_save{
+			7z_save0
+			if ( Test-Path -Path $SecondBackupFolder ){
+				Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
+				if ( !$? ){
+					Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
+				}
+				Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+			}
+		}
+	}
+
+	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+		function Backup_According_to_day_filter {
+			Backup_According_to_day_filter0
+		}
+	}
+	else{
+		function Backup_According_to_day_filter {
+			Backup_According_to_day_filter0
+			if ( Test-Path -Path $SecondBackupFolder ){
+				if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
+					Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
+					if ( !$? ){
+						Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
+					}
+				}
+			}
+			Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 		}
 	}
 	MainMenu
