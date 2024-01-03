@@ -693,6 +693,8 @@ function AdvancedMenu {
 			(Get-Content $Path_to_Script).Replace("$ChangeMe7","`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content $Path_to_Script
 			(Get-Content $Path_to_Script).Replace("$ChangeMe1","`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content $Path_to_Script
 			(Get-Content $Path_to_Script).Replace("$ChangeMe5","`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content $Path_to_Script
+			$ErrorLabelText = 'The configurations are set, please restart the script'
+			ErrorForm
 			$AdvancedMenuForm.Close()
 		}
 	})
