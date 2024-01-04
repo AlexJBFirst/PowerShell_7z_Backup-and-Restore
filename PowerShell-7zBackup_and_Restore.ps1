@@ -54,7 +54,7 @@ function 7z_save {
 	if ( !$? ){
 		Write-Output "####################################################`nSomesing go wrong. When archiving $WhatToBackup to $BackupFolder\$BackupName`_$Time.7z"
 	}
-	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 }
 
 function 7z_save_SecondBackupFolder {
@@ -63,13 +63,13 @@ function 7z_save_SecondBackupFolder {
 	if ( !$? ){
 		Write-Output "####################################################`nSomesing go wrong. When archiving $WhatToBackup to $BackupFolder\$BackupName`_$Time.7z"
 	}
-	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	if ( Test-Path -Path $SecondBackupFolder ){
-		Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder" -Recurse
+		Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
 		if ( !$? ){
 			Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
 		}
-		Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+		Get-ChildItem $SecondBackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	}
 }
 
@@ -82,7 +82,7 @@ function Backup_According_to_day_filter {
 			Write-Output "####################################################`nSomesing go wrong. When archiving $fullname to $BackupFolder\$BackupName`_$Time.7z"
 		}
 	}
-	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 }
 
 function Backup_According_to_day_filter_SecondBackupFolder {
@@ -94,16 +94,16 @@ function Backup_According_to_day_filter_SecondBackupFolder {
 			Write-Output "####################################################`nSomesing go wrong. When archiving $fullname to $BackupFolder\$BackupName`_$Time.7z"
 		}
 	}
-	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	if ( Test-Path -Path $SecondBackupFolder ){
 		if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
-			Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder" -Recurse
+			Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
 			if ( !$? ){
 				Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
 			}
 		}
 	}
-	Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	Get-ChildItem $SecondBackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 }
 #BackupMenu#####################################################################################
 #RestoreMenu####################################################################################
@@ -117,7 +117,7 @@ function 7z_BackupBeforeRestore{
 	else
 	{
 		$Script:7z_BackupBeforeRestoreExecution='True'
-		Get-ChildItem $BackupFolder\Backups_before_restore\ | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+		Get-ChildItem $BackupFolder\Backups_before_restore\ -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	}
 	
 }
@@ -575,7 +575,7 @@ function RestoreMenu {
 	$RestoreMenuClassicRestoreButton.Text = 'Restore Backup Job'
 	$RestoreMenuClassicRestoreButton.TextAlign = 'MiddleCenter'
 	$RestoreMenuClassicRestoreButton.Add_Click({
-		$Script:RestoreMenuListObjects = @($((Get-ChildItem $BackupFolder -Exclude Backups_before_restore).FullName))
+		$Script:RestoreMenuListObjects = @($((Get-ChildItem $BackupFolder -Filter *.7z).FullName))
 		$Script:RestoreAfterDisasterClick = 'False'
 		RestoreMenuList
 	})
