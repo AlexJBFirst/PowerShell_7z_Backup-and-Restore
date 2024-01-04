@@ -65,7 +65,7 @@ function 7z_save_SecondBackupFolder {
 	}
 	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	if ( Test-Path -Path $SecondBackupFolder ){
-		Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
+		Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder" -Recurse
 		if ( !$? ){
 			Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
 		}
@@ -97,7 +97,7 @@ function Backup_According_to_day_filter_SecondBackupFolder {
 	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	if ( Test-Path -Path $SecondBackupFolder ){
 		if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
-			Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
+			Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder" -Recurse
 			if ( !$? ){
 				Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
 			}
