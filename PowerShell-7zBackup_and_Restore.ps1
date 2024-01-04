@@ -48,7 +48,7 @@ function check_directories{
 	}
 }
 
-function 7z_save0 {
+function 7z_save {
 	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
 	& "$7z_directory\7z.exe" a "$BackupFolder\$BackupName`_$Time.7z" "$WhatToBackup`*" -bsp1
 	if ( !$? ){
@@ -57,7 +57,23 @@ function 7z_save0 {
 	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 }
 
-function Backup_According_to_day_filter0 {
+function 7z_save_SecondBackupFolder {
+	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
+	& "$7z_directory\7z.exe" a "$BackupFolder\$BackupName`_$Time.7z" "$WhatToBackup`*" -bsp1
+	if ( !$? ){
+		Write-Output "####################################################`nSomesing go wrong. When archiving $WhatToBackup to $BackupFolder\$BackupName`_$Time.7z"
+	}
+	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	if ( Test-Path -Path $SecondBackupFolder ){
+		Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
+		if ( !$? ){
+			Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
+		}
+		Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	}
+}
+
+function Backup_According_to_day_filter {
 	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
 	foreach ($file in (Get-ChildItem $WhatToBackup| Where-Object -FilterScript {$_.LastWriteTime -gt (Get-date).adddays(-$BackupDayFilter)})){
 		$fullname=$file.FullName
@@ -67,6 +83,27 @@ function Backup_According_to_day_filter0 {
 		}
 	}
 	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+}
+
+function Backup_According_to_day_filter_SecondBackupFolder {
+	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
+	foreach ($file in (Get-ChildItem $WhatToBackup| Where-Object -FilterScript {$_.LastWriteTime -gt (Get-date).adddays(-$BackupDayFilter)})){
+		$fullname=$file.FullName
+		& "$7z_directory\7z.exe" a "$BackupFolder\$BackupName`_$Time.7z" "$fullname" -bsp1
+		if ( !$? ){
+			Write-Output "####################################################`nSomesing go wrong. When archiving $fullname to $BackupFolder\$BackupName`_$Time.7z"
+		}
+	}
+	Get-ChildItem $BackupFolder -Exclude Backups_before_restore| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
+	if ( Test-Path -Path $SecondBackupFolder ){
+		if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
+			Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
+			if ( !$? ){
+				Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
+			}
+		}
+	}
+	Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 }
 #BackupMenu#####################################################################################
 #RestoreMenu####################################################################################
@@ -139,21 +176,41 @@ function LogForm {
 	function LogFormJobBackup1{
 		$LogTextBox.Text = ''
 		$LogTextBox.Text = check_directories|Out-String
-		7z_save|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-			$LogTextBox.Text += "$_"
-			$LogTextBox.Text += "`r`n"
-			$LogTextBox.SelectionStart = $LogTextBox.TextLength
-			$LogTextBox.ScrollToCaret()
+		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+			7z_save|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
+				$LogTextBox.Text += "$_"
+				$LogTextBox.Text += "`r`n"
+				$LogTextBox.SelectionStart = $LogTextBox.TextLength
+				$LogTextBox.ScrollToCaret()
+			}
+		}
+		else{
+			7z_save_SecondBackupFolder|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
+				$LogTextBox.Text += "$_"
+				$LogTextBox.Text += "`r`n"
+				$LogTextBox.SelectionStart = $LogTextBox.TextLength
+				$LogTextBox.ScrollToCaret()
+			}
 		}
 	}
 	function LogFormJobBackup2{
 		$LogTextBox.Text = ''
 		$LogTextBox.Text = check_directories|Out-String
-		Backup_According_to_day_filter|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-			$LogTextBox.Text += "$_"
-			$LogTextBox.Text += "`r`n"
-			$LogTextBox.SelectionStart = $LogTextBox.TextLength
-			$LogTextBox.ScrollToCaret()
+		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+			Backup_According_to_day_filter|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
+				$LogTextBox.Text += "$_"
+				$LogTextBox.Text += "`r`n"
+				$LogTextBox.SelectionStart = $LogTextBox.TextLength
+				$LogTextBox.ScrollToCaret()
+			}
+		}
+		else{
+			Backup_According_to_day_filter_SecondBackupFolder|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
+				$LogTextBox.Text += "$_"
+				$LogTextBox.Text += "`r`n"
+				$LogTextBox.SelectionStart = $LogTextBox.TextLength
+				$LogTextBox.ScrollToCaret()
+			}
 		}
 		if ([string]::IsNullOrEmpty($LogTextBox.Text)){
 			$LogTextBox.Text="There are nothing to backup"
@@ -1133,50 +1190,25 @@ If ([string]::IsNullOrEmpty($args[0])){
 			}
 		}
 	}
-	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-		function 7z_save {
-			7z_save0
-		}
-	}
-	else{
-		function 7z_save{
-			7z_save0
-			if ( Test-Path -Path $SecondBackupFolder ){
-				Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
-				if ( !$? ){
-					Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
-				}
-				Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-			}
-		}
-	}
-
-	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-		function Backup_According_to_day_filter {
-			Backup_According_to_day_filter0
-		}
-	}
-	else{
-		function Backup_According_to_day_filter {
-			Backup_According_to_day_filter0
-			if ( Test-Path -Path $SecondBackupFolder ){
-				if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
-					Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
-					if ( !$? ){
-						Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
-					}
-				}
-			}
-			Get-ChildItem $SecondBackupFolder | Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-		}
-	}
+	
 	MainMenu
 }
 elseif ( "1" -eq $args[0] ){
 	check_directories
-	7z_save
+	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+		7z_save
+	}
+	else{
+		7z_save_SecondBackupFolder
+	}
+	
 }
 elseif ( "2" -eq $args[0] ){
 	check_directories
-	Backup_According_to_day_filter
+	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+		Backup_According_to_day_filter
+	}
+	else{
+		Backup_According_to_day_filter_SecondBackupFolder
+	}
 }
