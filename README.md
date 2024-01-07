@@ -98,10 +98,10 @@ This method will be useful for those who would like to make archive copies of th
 In order for the script to work, it must be run at least once in graphical form, as the script will save all the necessary directory settings.
 
 After the first run, you can use the following command to perform a regular directory backup:  
->powershell -file "$Path_to_Script" 1  
+>powershell -file "$Path_to_Script" -AutomationType SimpleBackup  
 
 Or in the case of a time-based backup:
->powershell -file "$Path_to_Script" 2  
+>powershell -file "$Path_to_Script" -AutomationType TimeFilteredBackup  
 
 $Path_to_Script - the full path to the script, for example "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1"
 
@@ -118,27 +118,39 @@ To accomplish this task, we need:
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/f46a1257-ccae-4110-b445-e499222e377c)  
 5) On the actions tab, create a task using the example below:  
 In arguments field put one of the commands below:  
->-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" 1  
+>-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType SimpleBackup  
 
 OR  
->-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" 2  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/9c3aa59f-b6f0-4ad9-b65a-2d7209157feb)  
+>-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType TimeFilteredBackup
+
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/0f2624bf-c3f1-4bb9-940f-dc704f747c7f)   
 
 File recovery can be done exclusively from the GUI!
 
 # Screenshots of the program:
 ### Configuration Menu  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/0b3a9500-6503-4787-8fbb-15aaae6deeed)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/30761b37-cece-43f3-8000-8f158eff9cd7)  
 ### Main Menu  
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/73737767-c103-498f-bc8c-9d682800d69f)  
 ### Backup Menu  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/d7c704cc-38cf-4c62-907a-a13c4d0cf824)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/351546a3-725e-402b-8f52-6f1d2388aecf)  
 ### Simple Backup Job  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/49c46152-a2f3-4d84-8406-fa2eaa6d265c)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/e4bc604f-9391-4e9c-bc1e-f42efeb9bccc)
+### Created Backup  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/bc202e72-aebe-430a-811e-e36a568b3f58)
+### File in the 7z Backup file
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/300967c2-45f8-4aa3-90d5-35a416d293ac)  
 ### Restore Menu  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/2b4d5687-72ca-48ca-857e-3943c75b1141)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/72906a9a-ffab-4e55-bf20-5ccce1405c79)  
 ### Restore Backup Job  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/158e4893-d6e0-438a-b685-24aa74658c0d)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/01fbbda7-2c92-4df2-ac42-002f37ef71e3)  
+### Restore Backup Log  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/a53bdbda-ca33-41ff-8ad5-25a6bcbd4e81)
+### Backup created before restoring archive in Backup_before_restore folder 
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/84c9ca00-aad9-4539-b8b7-bfe80f96513e)  
+### Recovered files from the archive
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/0ff5684b-f845-4d71-9407-6345458458ea)
+
 
 ### Enjoy!
 
