@@ -1,30 +1,34 @@
+Param(
+	[Parameter(ValueFromPipeline,HelpMessage="For a simple backup job, enter 'SimpleBackup'`nFor a backup job with time filtering, enter 'TimeFilteredBackup'")]
+	[ValidateSet('SimpleBackup','TimeFilteredBackup')][String]$AutomationType
+)
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 ####################################Variables.Changeble###############################################
 function VariablesAdvancedMenu{
-$Script:BackupFolder="" #1
-$Script:7z_directory="C:\Program Files\7-Zip\" #2
-$Script:SecondBackupFolder="" #3
-$Script:BackupName="" #4
-$Script:WhatToBackup="" #5
-$Script:RestoreDirectory="" #6
-$Script:NumberOfBackups="2" #7
-$Script:BackupDayFilter="15" #8
+[String]$Script:BackupFolder="" #1
+[String]$Script:7z_directory="C:\Program Files\7-Zip\" #2
+[String]$Script:SecondBackupFolder="" #3
+[String]$Script:BackupName="" #4
+[String]$Script:WhatToBackup="" #5
+[String]$Script:RestoreDirectory="" #6
+[Decimal]$Script:NumberOfBackups="2" #7
+[Decimal]$Script:BackupDayFilter="15" #8
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
 $Path_to_Script=$MyInvocation.MyCommand.Path
 function VariablesDoNotTouch{
-$Script:Shell_command=Write-Output "powershell -file `"$Path_to_Script`" 1"
-$Script:Shell_command2=Write-Output "powershell -file `"$Path_to_Script`" 2"
-$Script:ChangeMe1=$(Get-Content $Path_to_Script|Select-Object -Skip 4 -First 1)
-$Script:ChangeMe2=$(Get-Content $Path_to_Script|Select-Object -Skip 5 -First 1)
-$Script:ChangeMe3=$(Get-Content $Path_to_Script|Select-Object -Skip 6 -First 1)
-$Script:ChangeMe4=$(Get-Content $Path_to_Script|Select-Object -Skip 7 -First 1)
-$Script:ChangeMe5=$(Get-Content $Path_to_Script|Select-Object -Skip 8 -First 1)
-$Script:ChangeMe6=$(Get-Content $Path_to_Script|Select-Object -Skip 9 -First 1)
-$Script:ChangeMe7=$(Get-Content $Path_to_Script|Select-Object -Skip 10 -First 1)
-$Script:ChangeMe8=$(Get-Content $Path_to_Script|Select-Object -Skip 11 -First 1)
+$Script:Shell_command=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType SimpleBackup"
+$Script:Shell_command2=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType TimeFilteredBackup"
+$Script:ChangeMe1=$(Get-Content $Path_to_Script|Select-Object -Skip 8 -First 1)
+$Script:ChangeMe2=$(Get-Content $Path_to_Script|Select-Object -Skip 9 -First 1)
+$Script:ChangeMe3=$(Get-Content $Path_to_Script|Select-Object -Skip 10 -First 1)
+$Script:ChangeMe4=$(Get-Content $Path_to_Script|Select-Object -Skip 11 -First 1)
+$Script:ChangeMe5=$(Get-Content $Path_to_Script|Select-Object -Skip 12 -First 1)
+$Script:ChangeMe6=$(Get-Content $Path_to_Script|Select-Object -Skip 13 -First 1)
+$Script:ChangeMe7=$(Get-Content $Path_to_Script|Select-Object -Skip 14 -First 1)
+$Script:ChangeMe8=$(Get-Content $Path_to_Script|Select-Object -Skip 15 -First 1)
 }
 function DiskVariablesBackup {
 $Script:DriveLetter_backups=($BackupFolder).split(':')[0]
@@ -39,6 +43,11 @@ $Script:DriveRestoreLeftSpace=[math]::round($DriveSpaceArray[0] /1Mb, 3)
 VariablesAdvancedMenu
 VariablesDoNotTouch
 ####################################Variables.END######################################################
+#Params########################################################################################
+function check_all_params{
+	([string]::IsNullOrEmpty($BackupFolder) -or [string]::IsNullOrEmpty($BackupName) -or [string]::IsNullOrEmpty($WhatToBackup) -or $NumberOfBackups -lt 1 -or $BackupDayFilter -lt 1)
+}
+#ParamsEnd#####################################################################################
 #BackupMenu#####################################################################################
 function check_directories{
     if ( Test-Path -Path $BackupFolder ){
@@ -380,14 +389,14 @@ function BackupMenu {
 	#######################################################################################################
 	$BackupMenuForm = New-Object System.Windows.Forms.Form
 	$BackupMenuForm.Text = 'PowerShell 7z Backup and Restore'
-	$BackupMenuForm.Size = New-Object System.Drawing.Size(836,474)
+	$BackupMenuForm.ClientSize = New-Object System.Drawing.Size(820,560)
 	$BackupMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$BackupMenuForm.BackColor = 'Black'
 	$BackupMenuForm.ForeColor = 'White'
 	$BackupMenuForm.StartPosition = 'CenterScreen'
 	#######################################################################################################
 	$BackupMenuExitButton = New-Object System.Windows.Forms.Button
-	$BackupMenuExitButton.Location = New-Object System.Drawing.Point(360,390)
+	$BackupMenuExitButton.Location = New-Object System.Drawing.Point(360,505)
 	$BackupMenuExitButton.Size = New-Object System.Drawing.Size(100,35)
 	$BackupMenuExitButton.Text = 'Exit'
 	$BackupMenuExitButton.TextAlign = 'MiddleCenter'
@@ -402,7 +411,7 @@ function BackupMenu {
 		$Script:LogFormJob = {LogFormJobBackup1}
 		LogForm
 		DiskVariablesBackup
-		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nFor Automation, you can use this parammetres in command line:`n$Shell_command`nFor Simple Backup Job or`n$Shell_command2`nFor Time Filtred Backup Job"
+		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
 	})
 	#######################################################################################################
 	$BackupMenuTimeFiltredBackupButton = New-Object System.Windows.Forms.Button
@@ -414,9 +423,51 @@ function BackupMenu {
 		$Script:LogFormJob = {LogFormJobBackup2}
 		LogForm
 		DiskVariablesBackup
-		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nFor Automation, you can use this parammetres in command line:`n$Shell_command`nFor Simple Backup Job or`n$Shell_command2`nFor Time Filtred Backup Job"
+		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
 	})
 	#######################################################################################################
+	$BackupMenuClassicBackupTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuClassicBackupTextBox.Location = New-Object System.Drawing.Point(10,425)
+	$BackupMenuClassicBackupTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuClassicBackupTextBox.Text = "$Shell_command"
+	$BackupMenuClassicBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuClassicBackupTextBox.ReadOnly = $true
+	#######################################################################################################
+	$BackupMenuTimeFiltredBackupTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuTimeFiltredBackupTextBox.Location = New-Object System.Drawing.Point(10,465)
+	$BackupMenuTimeFiltredBackupTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuTimeFiltredBackupTextBox.Text = "$Shell_command2"
+	$BackupMenuTimeFiltredBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuTimeFiltredBackupTextBox.ReadOnly = $true
+	#######################################################################################################
+	$BackupMenuWhatToBackupTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuWhatToBackupTextBox.Location = New-Object System.Drawing.Point(10,195)
+	$BackupMenuWhatToBackupTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuWhatToBackupTextBox.Text = "$WhatToBackup"
+	$BackupMenuWhatToBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuWhatToBackupTextBox.ReadOnly = $true
+	#######################################################################################################	
+	$BackupMenuBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,255)
+	$BackupMenuBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuBackupDirectoryTextBox.Text = "$BackupFolder"
+	$BackupMenuBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuBackupDirectoryTextBox.ReadOnly = $true
+	#######################################################################################################	
+	$BackupMenuSecondBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuSecondBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,320)
+	$BackupMenuSecondBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuSecondBackupDirectoryTextBox.Text = "$(
+		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+			Write-Output "Second Backup folder is not set"
+		}
+		else{
+			Write-Output "$SecondBackupFolder"
+		}
+	)"
+	$BackupMenuSecondBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuSecondBackupDirectoryTextBox.ReadOnly = $true
+	#######################################################################################################		
 	$BackupMenuLabel = New-Object System.Windows.Forms.Label
 	$BackupMenuLabel.Location = New-Object System.Drawing.Point(10,5)
 	$BackupMenuLabel.Size = New-Object System.Drawing.Size(800,20)
@@ -440,19 +491,33 @@ function BackupMenu {
 	$BackupMenuTimeFiltredBackupLabel.Text = "If you want to archive only files older than $BackupDayFilter days in the folder specified below, click this button."
 	$BackupMenuTimeFiltredBackupLabel.BorderStyle = "FixedSingle"
 	######################################################################################################
-	$BackupMenuFromToBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuFromToBackupLabel.Location = New-Object System.Drawing.Point(10,170)
-	$BackupMenuFromToBackupLabel.Size = New-Object System.Drawing.Size(800,80)
-	$BackupMenuFromToBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuFromToBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuFromToBackupLabel.Text = "Folder to be archived:`n$WhatToBackup`nBackup folder are located in:`n$BackupFolder"
+	$BackupMenuFromBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuFromBackupLabel.Location = New-Object System.Drawing.Point(10,170)
+	$BackupMenuFromBackupLabel.Size = New-Object System.Drawing.Size(800,20)
+	$BackupMenuFromBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuFromBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuFromBackupLabel.Text = "Folder to be archived:"
+	######################################################################################################
+	$BackupMenuToBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuToBackupLabel.Location = New-Object System.Drawing.Point(10,230)
+	$BackupMenuToBackupLabel.Size = New-Object System.Drawing.Size(800,20)
+	$BackupMenuToBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuToBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuToBackupLabel.Text = "Backup folder are located in:"
+	######################################################################################################
+	$BackupMenuSecondBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuSecondBackupLabel.Location = New-Object System.Drawing.Point(10,295)
+	$BackupMenuSecondBackupLabel.Size = New-Object System.Drawing.Size(800,20)
+	$BackupMenuSecondBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuSecondBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuSecondBackupLabel.Text = "Second Backup folder are located in:"
 	######################################################################################################
 	$BackupMenuSpaceLeftOnDiskLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(10,260)
-	$BackupMenuSpaceLeftOnDiskLabel.Size = New-Object System.Drawing.Size(800,120)
+	$BackupMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(10,360)
+	$BackupMenuSpaceLeftOnDiskLabel.Size = New-Object System.Drawing.Size(800,60)
 	$BackupMenuSpaceLeftOnDiskLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$BackupMenuSpaceLeftOnDiskLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nFor Automation, you can use this parammetres in command line:`n$Shell_command`nFor Simple Backup Job or`n$Shell_command2`nFor Time Filtred Backup Job"
+	$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
 	######################################################################################################
 	$BackupMenuForm.AcceptButton = $BackupMenuExitButton
 	$BackupMenuForm.Controls.Add($BackupMenuExitButton)
@@ -464,7 +529,14 @@ function BackupMenu {
 	$BackupMenuForm.Controls.Add($BackupMenuClassicBackupLabel)
 	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupLabel)
 	$BackupMenuForm.Controls.Add($BackupMenuSpaceLeftOnDiskLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuFromToBackupLabel)
+	$BackupMenuForm.Controls.Add($BackupMenuFromBackupLabel)
+	$BackupMenuForm.Controls.Add($BackupMenuToBackupLabel)
+	$BackupMenuForm.Controls.Add($BackupMenuSecondBackupLabel)
+	$BackupMenuForm.Controls.Add($BackupMenuClassicBackupTextBox)
+	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupTextBox)
+	$BackupMenuForm.Controls.Add($BackupMenuWhatToBackupTextBox)
+	$BackupMenuForm.Controls.Add($BackupMenuBackupDirectoryTextBox)
+	$BackupMenuForm.Controls.Add($BackupMenuSecondBackupDirectoryTextBox)
 	$BackupMenuForm.Topmost = $true
 	######################################################################################################
 	$Script:BackupMenuResult = $BackupMenuForm.ShowDialog()
@@ -556,14 +628,14 @@ function RestoreMenu {
 	#######################################################################################################
 	$RestoreMenuForm = New-Object System.Windows.Forms.Form
 	$RestoreMenuForm.Text = 'PowerShell 7z Backup and Restore'
-	$RestoreMenuForm.ClientSize = New-Object System.Drawing.Size(812, 396)
+	$RestoreMenuForm.ClientSize = New-Object System.Drawing.Size(810, 415)
 	$RestoreMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$RestoreMenuForm.BackColor = 'Black'
 	$RestoreMenuForm.ForeColor = 'White'
 	$RestoreMenuForm.StartPosition = 'CenterScreen'
 	#######################################################################################################
 	$RestoreMenuExitButton = New-Object System.Windows.Forms.Button
-	$RestoreMenuExitButton.Location = New-Object System.Drawing.Point(363, 355)
+	$RestoreMenuExitButton.Location = New-Object System.Drawing.Point(345, 370)
 	$RestoreMenuExitButton.Size = New-Object System.Drawing.Size(100,35)
 	$RestoreMenuExitButton.Text = 'Exit'
 	$RestoreMenuExitButton.TextAlign = 'MiddleCenter'
@@ -609,6 +681,20 @@ function RestoreMenu {
 			$RestoreMenuRestoreAfterDisasterButton.Enabled = $false
 		}
 	})
+	#######################################################################################################	
+	$RestoreMenuRestoreDirectoryTextBox = New-Object System.Windows.Forms.TextBox
+	$RestoreMenuRestoreDirectoryTextBox.Location = New-Object System.Drawing.Point(10,235)
+	$RestoreMenuRestoreDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$RestoreMenuRestoreDirectoryTextBox.Text = "$RestoreDirectory"
+	$RestoreMenuRestoreDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$RestoreMenuRestoreDirectoryTextBox.ReadOnly = $true
+	#######################################################################################################	
+	$RestoreMenuBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
+	$RestoreMenuBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,300)
+	$RestoreMenuBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$RestoreMenuBackupDirectoryTextBox.Text = "$BackupFolder"
+	$RestoreMenuBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$RestoreMenuBackupDirectoryTextBox.ReadOnly = $true
 	#######################################################################################################
 	$RestoreMenuLabel = New-Object System.Windows.Forms.Label
 	$RestoreMenuLabel.Location = New-Object System.Drawing.Point(211, 9)
@@ -633,16 +719,23 @@ function RestoreMenu {
 	$RestoreMenuRestoreAfterDisasterLabel.Text = "It works only if you check the box `'Make a backup before restoring an archive copy?`'. By clicking this button, you can restore the backup that was made before the previous restore."
 	$RestoreMenuRestoreAfterDisasterLabel.BorderStyle = "FixedSingle"
 	######################################################################################################
-	$RestoreMenuFromToRestoreLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuFromToRestoreLabel.Location = New-Object System.Drawing.Point(103, 213)
-	$RestoreMenuFromToRestoreLabel.Size = New-Object System.Drawing.Size(607, 86)
-	$RestoreMenuFromToRestoreLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuFromToRestoreLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuFromToRestoreLabel.Text = "Folder to which to restore the backup:`n$RestoreDirectory`nBackup folder are located in:`n$BackupFolder"
+	$RestoreMenuFromRestoreLabel = New-Object System.Windows.Forms.Label
+	$RestoreMenuFromRestoreLabel.Location = New-Object System.Drawing.Point(10, 210)
+	$RestoreMenuFromRestoreLabel.Size = New-Object System.Drawing.Size(800, 20)
+	$RestoreMenuFromRestoreLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$RestoreMenuFromRestoreLabel.TextAlign = 'MiddleCenter'
+	$RestoreMenuFromRestoreLabel.Text = "Folder to restore backup to:"
+	######################################################################################################
+	$RestoreMenuToRestoreLabel = New-Object System.Windows.Forms.Label
+	$RestoreMenuToRestoreLabel.Location = New-Object System.Drawing.Point(10, 275)
+	$RestoreMenuToRestoreLabel.Size = New-Object System.Drawing.Size(800, 20)
+	$RestoreMenuToRestoreLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$RestoreMenuToRestoreLabel.TextAlign = 'MiddleCenter'
+	$RestoreMenuToRestoreLabel.Text = "Backup folder are located in:"
 	######################################################################################################
 	$RestoreMenuSpaceLeftOnDiskLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(103, 309)
-	$RestoreMenuSpaceLeftOnDiskLabel.Size = New-Object System.Drawing.Size(607, 43)
+	$RestoreMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(10, 340)
+	$RestoreMenuSpaceLeftOnDiskLabel.Size = New-Object System.Drawing.Size(800, 20)
 	$RestoreMenuSpaceLeftOnDiskLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$RestoreMenuSpaceLeftOnDiskLabel.TextAlign = 'MiddleCenter'
 	$RestoreMenuSpaceLeftOnDiskLabel.Text = "There is $DriveRestoreLeftSpace MB of free space left on drive $DriveLetter_restore."
@@ -658,7 +751,10 @@ function RestoreMenu {
 	$RestoreMenuForm.Controls.Add($RestoreMenuClassicRestoreLabel)
 	$RestoreMenuForm.Controls.Add($RestoreMenuRestoreAfterDisasterLabel)
 	$RestoreMenuForm.Controls.Add($RestoreMenuSpaceLeftOnDiskLabel)
-	$RestoreMenuForm.Controls.Add($RestoreMenuFromToRestoreLabel)
+	$RestoreMenuForm.Controls.Add($RestoreMenuFromRestoreLabel)
+	$RestoreMenuForm.Controls.Add($RestoreMenuToRestoreLabel)
+	$RestoreMenuForm.Controls.Add($RestoreMenuRestoreDirectoryTextBox)
+	$RestoreMenuForm.Controls.Add($RestoreMenuBackupDirectoryTextBox)
 	$RestoreMenuForm.Topmost = $true
 	######################################################################################################
 	if ($RestoreMenuCheckBox.Checked){
@@ -698,20 +794,20 @@ function AdvancedMenu {
 	$AdvancedMenuOkButton.Add_Click({
 		$Script:BackupName = $AdvancedMenuBackupNameTextBox.Text
 		$Script:BackupName = $BackupName -Replace '[\W]',''
-		if ([string]::IsNullOrEmpty($BackupFolder) -or [string]::IsNullOrEmpty($BackupName) -or [string]::IsNullOrEmpty($WhatToBackup) -or [string]::IsNullOrEmpty($NumberOfBackups)){
+		if (check_all_params){
 			$Script:ErrorLabelText = "Please fill in all required fields"
 			ErrorForm
 		}
 		else{
 			VariablesDoNotTouch
-			(Get-Content $Path_to_Script).Replace("$ChangeMe4","`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe2","`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe6","`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe3","`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe8","`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe7","`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe1","`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe5","`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content $Path_to_Script
 			$ErrorLabelText = 'The configurations are set, please restart the script'
 			ErrorForm
 			$AdvancedMenuForm.Close()
@@ -733,14 +829,14 @@ function AdvancedMenu {
 		$Script:RestoreDirectory=""
 		$Script:NumberOfBackups="2"
 		$Script:BackupDayFilter="15"
-		(Get-Content $Path_to_Script).Replace("$ChangeMe4","`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe2","`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe6","`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe3","`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe8","`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe7","`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe1","`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe5","`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content $Path_to_Script
+		(Get-Content $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content $Path_to_Script
 		(Get-Variable -Name AdvancedMenuBackupFolderTextBox -Scope 1).Value.Text = $BackupFolder
 		(Get-Variable -Name AdvancedMenuSecondBackupFolderTextBox -Scope 1).Value.Text = $SecondBackupFolder
 		(Get-Variable -Name AdvancedMenuWhatToBackupTextBox -Scope 1).Value.Text = $WhatToBackup
@@ -792,7 +888,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupAmountPlusButton.UseVisualStyleBackColor = $true
 	$AdvancedMenuBackupAmountPlusButton.TextAlign = 'MiddleCenter'
 	$AdvancedMenuBackupAmountPlusButton.Add_Click({
-		[decimal]$Script:NumberOfBackups +=1
+		$Script:NumberOfBackups +=1
 		$AdvancedMenuBackupAmountTextBox.Text = "$NumberOfBackups"
 	})
 	#######################################################################################################
@@ -803,7 +899,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupAmountMinusButton.Text = "-1"
 	$AdvancedMenuBackupAmountMinusButton.TextAlign = 'MiddleCenter'
 	$AdvancedMenuBackupAmountMinusButton.Add_Click({
-		[decimal]$Script:NumberOfBackups -=1
+		$Script:NumberOfBackups -=1
 		if ($NumberOfBackups -eq '0'){
 			$Script:NumberOfBackups = 1
 		}
@@ -818,7 +914,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupDayFilterPlusButton.UseVisualStyleBackColor = $true
 	$AdvancedMenuBackupDayFilterPlusButton.TextAlign = 'MiddleCenter'
 	$AdvancedMenuBackupDayFilterPlusButton.Add_Click({
-		[decimal]$Script:BackupDayFilter +=1
+		$Script:BackupDayFilter +=1
 		$AdvancedMenuBackupDayFilterTextBox.Text = "$BackupDayFilter"
 	})
 	#######################################################################################################
@@ -830,7 +926,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupDayFilterMinusButton.UseVisualStyleBackColor = $true
 	$AdvancedMenuBackupDayFilterMinusButton.TextAlign = 'MiddleCenter'
 	$AdvancedMenuBackupDayFilterMinusButton.Add_Click({
-		[decimal]$Script:BackupDayFilter -=1
+		$Script:BackupDayFilter -=1
 		if ($BackupDayFilter -eq '0'){
 			$Script:BackupDayFilter = 1
 		}
@@ -925,7 +1021,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupAmountLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuBackupAmountLabel.Location = New-Object System.Drawing.Point(562, 165)
 	$AdvancedMenuBackupAmountLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuBackupAmountLabel.Text = "* Specify how many backups you would like to keep. *This is Mandatory field"
+	$AdvancedMenuBackupAmountLabel.Text = "* Specify how many backups you would like to keep. This value cannot be less than 1. *This is Mandatory field"
 	$AdvancedMenuBackupAmountLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuBackupDayFilterLabel = New-Object System.Windows.Forms.Label
@@ -933,7 +1029,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupDayFilterLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuBackupDayFilterLabel.Location = New-Object System.Drawing.Point(562, 206)
 	$AdvancedMenuBackupDayFilterLabel.Size = New-Object System.Drawing.Size(409, 54)
-	$AdvancedMenuBackupDayFilterLabel.Text = "If you want to archive only files in the directory that were created several days ago. In this field, specify the number of days that will be used as a filter for archiving."
+	$AdvancedMenuBackupDayFilterLabel.Text = "If you want to archive only files in the directory that were created several days ago. In this field, specify the number of days that will be used as a filter for archiving. This value cannot be less than 1. "
 	$AdvancedMenuBackupDayFilterLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuWhatToBackupLabel = New-Object System.Windows.Forms.Label
@@ -1165,10 +1261,10 @@ function MainMenu {
 	$Script:MainMenuResult = $MainMenuForm.ShowDialog()
 }
 
-If ([string]::IsNullOrEmpty($args[0])){
+If ([string]::IsNullOrEmpty($AutomationType)){
 	$run='True'
 	while ($run -eq 'True'){
-		if ([string]::IsNullOrEmpty($BackupFolder) -or [string]::IsNullOrEmpty($BackupName) -or [string]::IsNullOrEmpty($WhatToBackup) -or [string]::IsNullOrEmpty($NumberOfBackups)){
+		if (check_all_params){
 			AdvancedMenu
 			if ($AdvancedMenuResult -eq [System.Windows.Forms.DialogResult]::OK){
 				exit
@@ -1193,22 +1289,31 @@ If ([string]::IsNullOrEmpty($args[0])){
 	
 	MainMenu
 }
-elseif ( "1" -eq $args[0] ){
-	check_directories
-	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-		7z_save
+elseif ( "SimpleBackup" -eq $AutomationType ){
+	if (check_all_params){
+		Write-Output "Please run the script at least once and fill in all the mandatory fields.`nAttention, if you corrected the script by hand, then return the value of the NumberOfBackups and BackupDayFilter variables above zero" 
 	}
 	else{
-		7z_save_SecondBackupFolder
+		check_directories
+		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+			7z_save
+		}
+		else{
+			7z_save_SecondBackupFolder
+		}
 	}
-	
 }
-elseif ( "2" -eq $args[0] ){
-	check_directories
-	If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-		Backup_According_to_day_filter
+elseif ( "TimeFilteredBackup" -eq $AutomationType ){
+	if (check_all_params){
+		Write-Output "Please run the script at least once and fill in all the mandatory fields.`nAttention, if you corrected the script by hand, then return the value of the NumberOfBackups and BackupDayFilter variables above zero"
 	}
 	else{
-		Backup_According_to_day_filter_SecondBackupFolder
+		check_directories
+		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+			Backup_According_to_day_filter
+		}
+		else{
+			Backup_According_to_day_filter_SecondBackupFolder
+		}
 	}
 }
