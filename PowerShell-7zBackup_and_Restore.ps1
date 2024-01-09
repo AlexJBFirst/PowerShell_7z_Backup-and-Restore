@@ -74,8 +74,8 @@ function 7z_save_SecondBackupFolder {
 	}
 	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	if ( Test-Path -Path $SecondBackupFolder ){
-		Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
-		if ( !$? ){
+		Robocopy "$BackupFolder" "$SecondBackupFolder" "$BackupName`_$Time.7z" /mt /z
+		if ( $lastexitcode -ne 1 ){
 			Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
 		}
 		Get-ChildItem $SecondBackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
@@ -106,8 +106,8 @@ function Backup_According_to_day_filter_SecondBackupFolder {
 	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
 	if ( Test-Path -Path $SecondBackupFolder ){
 		if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
-			Copy-Item "$BackupFolder\$BackupName`_$Time.7z" "$SecondBackupFolder"
-			if ( !$? ){
+			Robocopy "$BackupFolder" "$SecondBackupFolder" "$BackupName`_$Time.7z" /mt /z
+			if ( $lastexitcode -ne 1 ){
 				Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
 			}
 		}
