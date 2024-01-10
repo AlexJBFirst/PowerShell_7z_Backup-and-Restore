@@ -148,8 +148,6 @@ File recovery can be done exclusively from the GUI!
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/a53bdbda-ca33-41ff-8ad5-25a6bcbd4e81)
 ### Backup created before restoring archive in Backup_before_restore folder 
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/84c9ca00-aad9-4539-b8b7-bfe80f96513e)  
-### Recovered files from the archive
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/0ff5684b-f845-4d71-9407-6345458458ea)
 
 
 ### Enjoy!
