@@ -4,13 +4,14 @@ Hello everyone!
 
 Today I present you my little project that will help you make 7z backups from a convenient graphical interface.  
 This project was originally created to save game save files in a compact form, without GUI, and all settings had to be entered into the script itself. It was convenient for me, but when I passed it on to my friends, it was not easy to set up for an unskilled user.  
-After a while, the project grew a little, it got a graphical interface and, in principle, it can be used to archive any data you want.  
+After a while, the project grew a little, it got a graphical interface and, in principle, it can be used to archive or copy any data you want.  
 
 You are presented with a program that:  
 1) Stores its settings in itself;  
-2) It can make two types of archive copies, with the ability to choose the number of backups to store.:  
+2) It can make three types of copy jobs, with the ability to choose the number of backups to store.:  
 - Regular - when you need to archive the entire directory with subdirectories;  
-- Time-based - is used to archive multiple files from a directory, where you can use a filter by file creation date. Only those files whose creation date differs from the date of the script launch by the selected number of days, will be included in the archive;  
+- Time-based - is used to archive multiple files from a directory, where you can use a filter by file creation date. Only those files whose creation date differs from the date of the script launch by the selected number of days, will be included in the archive;
+- Simple copy - copies a file or directory from the source directory to the destination directory and to a secondary backup folder, if one is provided;
 3) It can restore archive copies created by this program:
 - Before restoring the archived copies, you can also enable the option to create backups of the directory to which the files will be restored.  
 - If the option to create an archive before restoring was selected, these archives can also be restored using a separate menu!)  
@@ -123,17 +124,20 @@ In arguments field put one of the commands below:
 OR  
 >-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType TimeFilteredBackup
 
+OR
+>-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType Copy
+
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/0f2624bf-c3f1-4bb9-940f-dc704f747c7f)   
 
 File recovery can be done exclusively from the GUI!
 
 # Screenshots of the program:
 ### Configuration Menu  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/30761b37-cece-43f3-8000-8f158eff9cd7)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/633986b7-beda-4d24-8e13-620b4fc743a9)  
 ### Main Menu  
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/73737767-c103-498f-bc8c-9d682800d69f)  
 ### Backup Menu  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/351546a3-725e-402b-8f52-6f1d2388aecf)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/d126ee61-1f3e-421f-8ad7-75308ce75097)  
 ### Simple Backup Job  
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/e4bc604f-9391-4e9c-bc1e-f42efeb9bccc)
 ### Created Backup  
