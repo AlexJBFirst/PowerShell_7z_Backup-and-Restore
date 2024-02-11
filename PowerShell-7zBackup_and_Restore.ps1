@@ -22,6 +22,7 @@ function VariablesDoNotTouch{
 $Script:Shell_command=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType SimpleBackup"
 $Script:Shell_command2=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType TimeFilteredBackup"
 $Script:Shell_command3=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType Copy"
+$Script:OutputEncoding = [System.Text.Encoding]::UTF8
 $Script:ChangeMe1=$(Get-Content $Path_to_Script|Select-Object -Skip 8 -First 1)
 $Script:ChangeMe2=$(Get-Content $Path_to_Script|Select-Object -Skip 9 -First 1)
 $Script:ChangeMe3=$(Get-Content $Path_to_Script|Select-Object -Skip 10 -First 1)
