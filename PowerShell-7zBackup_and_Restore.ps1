@@ -14,7 +14,7 @@ function VariablesAdvancedMenu{
 [String]$Script:RestoreDirectory="" #6
 [Decimal]$Script:NumberOfBackups="2" #7
 [Decimal]$Script:BackupDayFilter="15" #8
-[String]$Script:ScriptVersion="1.0.0" #9
+[String]$Script:ScriptVersion="1.0.1" #9
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
@@ -646,7 +646,7 @@ function BackupMenu {
 	$BackupMenuClassicBackupLabel.Size = New-Object System.Drawing.Size(590,60)
 	$BackupMenuClassicBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$BackupMenuClassicBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuClassicBackupLabel.Text = "Click this button if you want to make a regular backup copy of the directory specified below"
+	$BackupMenuClassicBackupLabel.Text = "Click this button if you want to make a regular backup copy of the directory(file) specified below"
 	$BackupMenuClassicBackupLabel.BorderStyle = "FixedSingle"
 	######################################################################################################
 	$BackupMenuTimeFiltredBackupLabel = New-Object System.Windows.Forms.Label
@@ -670,7 +670,7 @@ function BackupMenu {
 	$BackupMenuFromBackupLabel.Size = New-Object System.Drawing.Size(800,20)
 	$BackupMenuFromBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$BackupMenuFromBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuFromBackupLabel.Text = "Folder to be archived:"
+	$BackupMenuFromBackupLabel.Text = "Folder(File) to be archived:"
 	######################################################################################################
 	$BackupMenuToBackupLabel = New-Object System.Windows.Forms.Label
 	$BackupMenuToBackupLabel.Location = New-Object System.Drawing.Point(10,300)
@@ -1170,7 +1170,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupNameLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuBackupNameLabel.Location = New-Object System.Drawing.Point(562, 42)
 	$AdvancedMenuBackupNameLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuBackupNameLabel.Text = "* Enter a backup name here. *This is Mandatory field"
+	$AdvancedMenuBackupNameLabel.Text = "* Backup name. This field is not used in the copy function. *This is Mandatory field"
 	$AdvancedMenuBackupNameLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuBackupFolderLabel = New-Object System.Windows.Forms.Label
@@ -1178,7 +1178,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupFolderLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuBackupFolderLabel.Location = New-Object System.Drawing.Point(562, 83)
 	$AdvancedMenuBackupFolderLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuBackupFolderLabel.Text = "* Select a folder to store your backups. *This is Mandatory field"
+	$AdvancedMenuBackupFolderLabel.Text = "* Backup Folder. *This is Mandatory field"
 	$AdvancedMenuBackupFolderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuSecondBackupFolderLabel = New-Object System.Windows.Forms.Label
@@ -1186,7 +1186,7 @@ function AdvancedMenu {
 	$AdvancedMenuSecondBackupFolderLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuSecondBackupFolderLabel.Location = New-Object System.Drawing.Point(562, 124)
 	$AdvancedMenuSecondBackupFolderLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuSecondBackupFolderLabel.Text = "If you want to create a copy of your backup in another directory, specify it here."
+	$AdvancedMenuSecondBackupFolderLabel.Text = "Second Backup Folder. If you want to create a copy of your backup in another directory, specify it here."
 	$AdvancedMenuSecondBackupFolderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuBackupAmountLabel = New-Object System.Windows.Forms.Label
@@ -1194,7 +1194,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupAmountLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuBackupAmountLabel.Location = New-Object System.Drawing.Point(562, 165)
 	$AdvancedMenuBackupAmountLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuBackupAmountLabel.Text = "* Specify how many backups you would like to keep. This value cannot be less than 1. *This is Mandatory field"
+	$AdvancedMenuBackupAmountLabel.Text = "* Number of backups. Specify how many backups you would like to keep. This value cannot be less than 1. *This is Mandatory field"
 	$AdvancedMenuBackupAmountLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuBackupDayFilterLabel = New-Object System.Windows.Forms.Label
@@ -1202,7 +1202,7 @@ function AdvancedMenu {
 	$AdvancedMenuBackupDayFilterLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuBackupDayFilterLabel.Location = New-Object System.Drawing.Point(562, 206)
 	$AdvancedMenuBackupDayFilterLabel.Size = New-Object System.Drawing.Size(409, 54)
-	$AdvancedMenuBackupDayFilterLabel.Text = "If you want to archive only files in the directory that were created several days ago. In this field, specify the number of days that will be used as a filter for archiving. This value cannot be less than 1. "
+	$AdvancedMenuBackupDayFilterLabel.Text = "Day Filter. If you want to archive only files in the directory that were created several days ago. In this field, specify the number of days that will be used as a filter for archiving. This value cannot be less than 1. "
 	$AdvancedMenuBackupDayFilterLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuWhatToBackupLabel = New-Object System.Windows.Forms.Label
@@ -1210,21 +1210,23 @@ function AdvancedMenu {
 	$AdvancedMenuWhatToBackupLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenuWhatToBackupLabel.Location = New-Object System.Drawing.Point(562, 270)
 	$AdvancedMenuWhatToBackupLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuWhatToBackupLabel.Text = "* Select folder or a file you want to archive. *This is Mandatory field"
-	$AdvancedMenuWhatToBackupLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft#######################################################################################################
+	$AdvancedMenuWhatToBackupLabel.Text = "* Source folder(file). Select folder or a file you want to archive. *This is Mandatory field"
+	$AdvancedMenuWhatToBackupLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+ 	#######################################################################################################
 	$AdvancedMenuRestoreFolderLabel = New-Object System.Windows.Forms.Label
 	$AdvancedMenuRestoreFolderLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 	$AdvancedMenuRestoreFolderLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuRestoreFolderLabel.Location = New-Object System.Drawing.Point(562, 314)
-	$AdvancedMenuRestoreFolderLabel.Size = New-Object System.Drawing.Size(409, 36)
-	$AdvancedMenuRestoreFolderLabel.Text = "Select folder that will be used when restoring the archive. Usually this directory is the same as the folder that will be archived."
-	$AdvancedMenuRestoreFolderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft#######################################################################################################
+	$AdvancedMenuRestoreFolderLabel.Location = New-Object System.Drawing.Point(562, 312)
+	$AdvancedMenuRestoreFolderLabel.Size = New-Object System.Drawing.Size(409, 35)
+	$AdvancedMenuRestoreFolderLabel.Text = "Restore Folder. Select folder that will be used when restoring the archive. Usually this directory is the same as the folder that will be archived."
+	$AdvancedMenuRestoreFolderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+ 	#######################################################################################################
 	$AdvancedMenu7zDirectoryLabel = New-Object System.Windows.Forms.Label
 	$AdvancedMenu7zDirectoryLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
 	$AdvancedMenu7zDirectoryLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
 	$AdvancedMenu7zDirectoryLabel.Location = New-Object System.Drawing.Point(562, 359)
 	$AdvancedMenu7zDirectoryLabel.Size = New-Object System.Drawing.Size(409, 60)
-	$AdvancedMenu7zDirectoryLabel.Text = "* Specify the directory where the 7-zip archiving program is located. Or install it from the official source: https://www.7-zip.org/download.html. *This is Mandatory field"
+	$AdvancedMenu7zDirectoryLabel.Text = "* 7-zip Folder. Specify the directory where the 7-zip archiving program is located. Or install it from the official source: https://www.7-zip.org/download.html. *This is Mandatory field"
 	$AdvancedMenu7zDirectoryLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
 	#######################################################################################################
 	$AdvancedMenuBackupNameTextBox = New-Object System.Windows.Forms.TextBox
