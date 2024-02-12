@@ -195,7 +195,73 @@ function 7z_restore{
 	}
 }
 #RestoreMenu####################################################################################
+#MainMenu#######################################################################################
+function CheckUpdate {
+	ping github.com -n 1
+	if ($LASTEXITCODE -eq 0) {
+		$GitScriptBody = (Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1).content
+		$GitScriptVersion = '#9'
+		$ScriptVersionScript=$ScriptVersion
+		ForEach ( $line in $($GitScriptBody -split "`r`n") ) {
+			if ($line -match ".*$GitScriptVersion") {
+				Invoke-Expression $line
+				if ( $ScriptVersionScript -ge $ScriptVersion ) {
+					$UpdateButton.Text = 'Nothing to update'
+					$UpdateButton.Enabled = $false
+				}
+				else {
+					$UpdateButton.Text = 'Do you want to update the script?'
+					[String]$Script:ScriptUpdate = '1'
+				}
+				break
+			}
+		}
+	}
+	else {
+		$UpdateButton.Text = 'Cannot connect to GITHUB'
+	}
+}
 
+function UpdateScript {
+	ping github.com -n 1
+	if ($LASTEXITCODE -eq 0) {
+		Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1 -OutFile Update_PowerShell_7z_Backup-and-Restore
+		$BackupConfigFile = Get-Content $Path_to_Script
+		[decimal]$skip = 0
+		ForEach ( $line in $BackupConfigFile ) {
+			if ($line -match '.*#1') {
+				$skipstart = $skip
+				$BackupConfig = $BackupConfigFile | Select-Object -Skip $skipstart -First 8
+				$skip = 0
+				break
+			}
+			$skip++
+		}
+		Move-Item .\Update_PowerShell_7z_Backup-and-Restore $Path_to_Script -Force
+		VariablesDoNotTouch
+		$UpdatedScriptFile = Get-Content $Path_to_Script
+		ForEach ( $line in $UpdatedScriptFile ) {
+			if ($line -match '.*#1') {
+				$skipstart = $skip
+				$UpdatedConfig = $UpdatedScriptFile | Select-Object -Skip $skipstart -First 8
+				break
+			}
+			$skip++
+		}
+		for ($a = 0;$a -le 7;$a++){
+			$BackupConfigString = $BackupConfig[$a]
+			$UpdatedConfigString = $UpdatedConfig[$a]
+			(Get-Content $Path_to_Script).Replace("$UpdatedConfigString","$BackupConfigString") | Set-Content $Path_to_Script
+		}
+		$Script:ErrorLabelText = 'Script Updated, exiting... Please restart the Script'
+		ErrorForm
+		$MainMenuForm.Close()
+	}
+	else {
+		$UpdateButton.Text = 'Cannot connect to GITHUB'
+	}
+}
+#MainMenu#######################################################################################
 function LogForm {
 	$LogForm = New-Object System.Windows.Forms.Form
 	$LogForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
@@ -412,7 +478,7 @@ function No7zip {
 		if ( Test-Path -Path "$7z_directory\7z.exe" ){
 			$Script:run='False'
 			VariablesDoNotTouch
-			(Get-Content $Path_to_Script).Replace("$ChangeMe2","`$Script:7z_directory`=`"$7z_directory\`" `#2") | Set-Content $Path_to_Script
+			(Get-Content $Path_to_Script).Replace("$ChangeMe2","`[String]$Script:7z_directory`=`"$7z_directory\`" `#2") | Set-Content $Path_to_Script
 			$No7zipForm.Close()
 		}
 		else{
@@ -1283,16 +1349,18 @@ function MainMenu {
 	$ExitButton.TextAlign = 'MiddleCenter'
 	$ExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
 	#######################################################################################################
-	$UpdateButton = New-Object System.Windows.Forms.Button
+	$Script:UpdateButton = New-Object System.Windows.Forms.Button
 	$UpdateButton.Location = New-Object System.Drawing.Point(5,165)
 	$UpdateButton.Size = New-Object System.Drawing.Size(410,35)
 	$UpdateButton.Text = 'Check for Updates?'
+	$UpdateButton.Enabled = $true
 	$UpdateButton.TextAlign = 'MiddleCenter'
 	$UpdateButton.Add_Click({
-		$test = '2'
-		if ( $test -eq 2){
-			$UpdateButton.Text = 'Nothing to update'
-			$UpdateButton.Enabled = $false
+		if ($ScriptUpdate -eq 1){
+			UpdateScript
+		}
+		else {
+			CheckUpdate
 		}
 	})
 	#######################################################################################################
