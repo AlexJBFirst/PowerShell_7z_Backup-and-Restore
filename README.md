@@ -15,7 +15,8 @@ You are presented with a program that:
 3) It can restore archive copies created by this program:
 - Before restoring the archived copies, you can also enable the option to create backups of the directory to which the files will be restored.  
 - If the option to create an archive before restoring was selected, these archives can also be restored using a separate menu!)  
-4) And it allows you to observe the log of both the recovery and the backup process.  
+4) This script is able to find new updates on this repository and update itself while preserving the settings you have set in it;  
+5) And it allows you to observe the log of both the recovery and the backup process.  
 
 And all of this, of course, in a "dark mode" or a "dark theme", call it what you will!  
 
@@ -135,7 +136,7 @@ File recovery can be done exclusively from the GUI!
 ### Configuration Menu  
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/633986b7-beda-4d24-8e13-620b4fc743a9)  
 ### Main Menu  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/73737767-c103-498f-bc8c-9d682800d69f)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/42a41c61-a254-463f-a823-122407a6b372)  
 ### Backup Menu  
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/d126ee61-1f3e-421f-8ad7-75308ce75097)  
 ### Simple Backup Job  
