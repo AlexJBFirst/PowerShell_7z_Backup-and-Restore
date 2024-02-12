@@ -14,6 +14,7 @@ function VariablesAdvancedMenu{
 [String]$Script:RestoreDirectory="" #6
 [Decimal]$Script:NumberOfBackups="2" #7
 [Decimal]$Script:BackupDayFilter="15" #8
+[String]$Script:ScriptVersion="1.0.0" #9
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
@@ -197,12 +198,13 @@ function 7z_restore{
 
 function LogForm {
 	$LogForm = New-Object System.Windows.Forms.Form
-	$LogForm.Text = 'PowerShell 7z Backup and Restore'
+	$LogForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
 	$LogForm.ClientSize = New-Object System.Drawing.Size(566, 371)
 	$LogForm.Font = New-Object System.Drawing.Font("Times New Roman",12,[System.Drawing.FontStyle]::Bold)
 	$LogForm.BackColor = 'Black'
 	$LogForm.ForeColor = 'White'
 	$LogForm.StartPosition = 'CenterScreen'
+	$LogForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$LogExitButton = New-Object System.Windows.Forms.Button
 	$LogExitButton.Location = New-Object System.Drawing.Point(208, 323)
@@ -351,12 +353,13 @@ function LogForm {
 
 function ErrorForm {
 	$ErrorForm = New-Object System.Windows.Forms.Form
-	$ErrorForm.Text = 'PowerShell 7z Backup and Restore'
+	$ErrorForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
 	$ErrorForm.Size = New-Object System.Drawing.Size(516,179)
 	$ErrorForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$ErrorForm.BackColor = 'Black'
 	$ErrorForm.ForeColor = 'White'
 	$ErrorForm.StartPosition = 'CenterScreen'
+	$ErrorForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$ErrorExitButton = New-Object System.Windows.Forms.Button
 	$ErrorExitButton.Location = New-Object System.Drawing.Point(190,95)
@@ -385,12 +388,13 @@ function ErrorForm {
 function No7zip {
 	#######################################################################################################
 	$No7zipForm = New-Object System.Windows.Forms.Form
-	$No7zipForm.Text = 'PowerShell 7z Backup and Restore'
+	$No7zipForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
 	$No7zipForm.Size = New-Object System.Drawing.Size(536,219)
 	$No7zipForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$No7zipForm.BackColor = 'Black'
 	$No7zipForm.ForeColor = 'White'
 	$No7zipForm.StartPosition = 'CenterScreen'
+	$No7zipForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$No7zipExitButton = New-Object System.Windows.Forms.Button
 	$No7zipExitButton.Location = New-Object System.Drawing.Point(410,135)
@@ -457,19 +461,20 @@ function No7zip {
 	$No7zipForm.Controls.Add($No7zipTextBox)
 	$No7zipForm.Topmost = $true
 	######################################################################################################
-	$Global:No7zipResult = $No7zipForm.ShowDialog()
+	$Script:No7zipResult = $No7zipForm.ShowDialog()
 }
 
 function BackupMenu {
 	DiskVariablesBackup
 	#######################################################################################################
 	$BackupMenuForm = New-Object System.Windows.Forms.Form
-	$BackupMenuForm.Text = 'PowerShell 7z Backup and Restore'
+	$BackupMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
 	$BackupMenuForm.ClientSize = New-Object System.Drawing.Size(820,670)
 	$BackupMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$BackupMenuForm.BackColor = 'Black'
 	$BackupMenuForm.ForeColor = 'White'
 	$BackupMenuForm.StartPosition = 'CenterScreen'
+	$BackupMenuForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$BackupMenuExitButton = New-Object System.Windows.Forms.Button
 	$BackupMenuExitButton.Location = New-Object System.Drawing.Point(360,615)
@@ -651,12 +656,13 @@ function BackupMenu {
 
 function RestoreMenuList {
 	$RestoreMenuListForm = New-Object System.Windows.Forms.Form
-	$RestoreMenuListForm.Text = 'PowerShell 7z Backup and Restore'
+	$RestoreMenuListForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
 	$RestoreMenuListForm.ClientSize = New-Object System.Drawing.Size(579, 245)
 	$RestoreMenuListForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$RestoreMenuListForm.BackColor = 'Black'
 	$RestoreMenuListForm.ForeColor = 'White'
 	$RestoreMenuListForm.StartPosition = 'CenterScreen'
+	$RestoreMenuListForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$RestoreMenuListExitButton = New-Object System.Windows.Forms.Button
 	$RestoreMenuListExitButton.Location = New-Object System.Drawing.Point(458, 198)
@@ -671,7 +677,7 @@ function RestoreMenuList {
 	$RestoreMenuListOKButton.Text = 'OK'
 	$RestoreMenuListOKButton.TextAlign = 'MiddleCenter'
 	$RestoreMenuListOKButton.Add_Click({
-		$RestoreMenuListSelectedItem=$RestoreMenuList.SelectedItem
+		$Script:RestoreMenuListSelectedItem=$RestoreMenuList.SelectedItem
 		if ($RestoreMenuCheckBox.Checked -and $RestoreAfterDisasterClick -eq 'False'){
 			$Script:LogFormJob = {LogFormJobRestore1}
 			LogForm
@@ -734,12 +740,13 @@ function RestoreMenu {
 	DiskVariablesRestore
 	#######################################################################################################
 	$RestoreMenuForm = New-Object System.Windows.Forms.Form
-	$RestoreMenuForm.Text = 'PowerShell 7z Backup and Restore'
+	$RestoreMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
 	$RestoreMenuForm.ClientSize = New-Object System.Drawing.Size(810, 415)
 	$RestoreMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$RestoreMenuForm.BackColor = 'Black'
 	$RestoreMenuForm.ForeColor = 'White'
 	$RestoreMenuForm.StartPosition = 'CenterScreen'
+	$RestoreMenuForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$RestoreMenuExitButton = New-Object System.Windows.Forms.Button
 	$RestoreMenuExitButton.Location = New-Object System.Drawing.Point(345, 370)
@@ -875,7 +882,7 @@ function RestoreMenu {
 
 function AdvancedMenu {
 	$AdvancedMenuForm = New-Object System.Windows.Forms.Form
-	$AdvancedMenuForm.Text = 'PowerShell 7z Backup and Restore'
+	$AdvancedMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
 	$AdvancedMenuForm.ClientSize = New-Object System.Drawing.Size(983, 466)
 	$AdvancedMenuForm.Font = New-Object System.Drawing.Font("Times New Roman", 18,[System.Drawing.FontStyle]::Bold,[System.Drawing.GraphicsUnit]::Point, 204)
 	$AdvancedMenuForm.BackColor = [System.Drawing.Color]::Black
@@ -883,6 +890,7 @@ function AdvancedMenu {
 	$AdvancedMenuForm.StartPosition = 'CenterScreen'
 	$AdvancedMenuForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Fixed3D
 	$AdvancedMenuForm.Margin = New-Object System.Windows.Forms.Padding(7, 6, 7, 6)
+	$AdvancedMenuForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$AdvancedMenuExitButton = New-Object System.Windows.Forms.Button
 	$AdvancedMenuExitButton.Location = New-Object System.Drawing.Point(887, 422)
@@ -956,7 +964,7 @@ function AdvancedMenu {
 		(Get-Variable -Name AdvancedMenuBackupNameTextBox -Scope 1).Value.Text = $BackupName
 		(Get-Variable -Name AdvancedMenuBackupAmountTextBox -Scope 1).Value.Text = $NumberOfBackups
 		(Get-Variable -Name AdvancedMenuBackupDayFilterTextBox -Scope 1).Value.Text = $BackupDayFilter
-		$ErrorLabelText = 'Configuration cleanup was successful. Please restart the script.'
+		$Script:ErrorLabelText = 'Configuration cleanup was successful. Please restart the script.'
 		ErrorForm
 	})
 	#######################################################################################################
@@ -1260,19 +1268,33 @@ function Restore_directory {
 
 function MainMenu {
 	$MainMenuForm = New-Object System.Windows.Forms.Form
-	$MainMenuForm.Text = 'PowerShell 7z Backup and Restore'
-	$MainMenuForm.Size = New-Object System.Drawing.Size(436,284)
+	$MainMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
+	$MainMenuForm.ClientSize = New-Object System.Drawing.Size(420,285)
 	$MainMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$MainMenuForm.BackColor = 'Black'
 	$MainMenuForm.ForeColor = 'White'
 	$MainMenuForm.StartPosition = 'CenterScreen'
+	$MainMenuForm.FormBorderStyle = 'FixedDialog'
 	#######################################################################################################
 	$ExitButton = New-Object System.Windows.Forms.Button
-	$ExitButton.Location = New-Object System.Drawing.Point(160,205)
+	$ExitButton.Location = New-Object System.Drawing.Point(160,240)
 	$ExitButton.Size = New-Object System.Drawing.Size(100,35)
 	$ExitButton.Text = 'Exit'
 	$ExitButton.TextAlign = 'MiddleCenter'
 	$ExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+	#######################################################################################################
+	$UpdateButton = New-Object System.Windows.Forms.Button
+	$UpdateButton.Location = New-Object System.Drawing.Point(5,165)
+	$UpdateButton.Size = New-Object System.Drawing.Size(410,35)
+	$UpdateButton.Text = 'Check for Updates?'
+	$UpdateButton.TextAlign = 'MiddleCenter'
+	$UpdateButton.Add_Click({
+		$test = '2'
+		if ( $test -eq 2){
+			$UpdateButton.Text = 'Nothing to update'
+			$UpdateButton.Enabled = $false
+		}
+	})
 	#######################################################################################################
 	$BackupButton = New-Object System.Windows.Forms.Button
 	$BackupButton.Location = New-Object System.Drawing.Point(5,50)
@@ -1323,7 +1345,7 @@ function MainMenu {
 	})
 	#######################################################################################################
 	$AdvancedMenuButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuButton.Location = New-Object System.Drawing.Point(145,165)
+	$AdvancedMenuButton.Location = New-Object System.Drawing.Point(145,205)
 	$AdvancedMenuButton.Size = New-Object System.Drawing.Size(130,35)
 	$AdvancedMenuButton.Text = 'Settings'
 	$AdvancedMenuButton.TextAlign = 'MiddleCenter'
@@ -1348,9 +1370,12 @@ function MainMenu {
 	$MainMenuForm.Controls.Add($OpenBackupFolderButton)
 	$MainMenuForm.AcceptButton = $OpenRestoreFolderButton
 	$MainMenuForm.Controls.Add($OpenRestoreFolderButton)
+	$MainMenuForm.AcceptButton = $UpdateButton
+	$MainMenuForm.Controls.Add($UpdateButton)
 	$MainMenuForm.AcceptButton = $AdvancedMenuButton
 	$MainMenuForm.Controls.Add($AdvancedMenuButton)
 	$MainMenuForm.Controls.Add($MainMenulabel)
+	
 	#######################################################################################################
 	$MainMenuForm.Topmost = $true
 	$Script:MainMenuResult = $MainMenuForm.ShowDialog()
