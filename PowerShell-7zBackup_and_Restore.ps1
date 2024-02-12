@@ -225,7 +225,7 @@ function CheckUpdate {
 function UpdateScript {
 	ping github.com -n 1
 	if ($LASTEXITCODE -eq 0) {
-		Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1 -OutFile Update_PowerShell_7z_Backup-and-Restore
+		Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1 -OutFile $env:TEMP\Update_PowerShell_7z_Backup-and-Restore
 		$BackupConfigFile = Get-Content $Path_to_Script
 		[decimal]$skip = 0
 		ForEach ( $line in $BackupConfigFile ) {
@@ -237,7 +237,7 @@ function UpdateScript {
 			}
 			$skip++
 		}
-		Move-Item .\Update_PowerShell_7z_Backup-and-Restore $Path_to_Script -Force
+		Move-Item $env:TEMP\Update_PowerShell_7z_Backup-and-Restore $Path_to_Script -Force
 		VariablesDoNotTouch
 		$UpdatedScriptFile = Get-Content $Path_to_Script
 		ForEach ( $line in $UpdatedScriptFile ) {
@@ -255,6 +255,9 @@ function UpdateScript {
 		}
 		$Script:ErrorLabelText = 'Script Updated, exiting... Please restart the Script'
 		ErrorForm
+  		if ( Test-Path $env:TEMP\Update_PowerShell_7z_Backup-and-Restore) {
+    			Remove-Item $env:TEMP\Update_PowerShell_7z_Backup-and-Restore
+       		}
 		$MainMenuForm.Close()
 	}
 	else {
