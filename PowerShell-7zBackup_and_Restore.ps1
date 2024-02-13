@@ -14,7 +14,7 @@ function VariablesAdvancedMenu{
 [String]$Script:RestoreDirectory="" #6
 [Decimal]$Script:NumberOfBackups="2" #7
 [Decimal]$Script:BackupDayFilter="15" #8
-[String]$Script:ScriptVersion="1.0.1" #9
+[String]$Script:ScriptVersion="1.0.2" #9
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
@@ -199,10 +199,10 @@ function 7z_restore{
 function CheckUpdate {
 	ping github.com -n 1
 	if ($LASTEXITCODE -eq 0) {
-		$GitScriptBody = (Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1).content
+		$Script:GitScriptBody = (Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1).content -split "`r`n"
 		$GitScriptVersion = '#9'
 		$ScriptVersionScript=$ScriptVersion
-		ForEach ( $line in $($GitScriptBody -split "`r`n") ) {
+		ForEach ( $line in $GitScriptBody ) {
 			if ($line -match ".*$GitScriptVersion") {
 				Invoke-Expression $line
 				if ( $ScriptVersionScript -ge $ScriptVersion ) {
@@ -225,7 +225,6 @@ function CheckUpdate {
 function UpdateScript {
 	ping github.com -n 1
 	if ($LASTEXITCODE -eq 0) {
-		Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1 -OutFile $BackupFolder`Update_PowerShell_7z_Backup-and-Restore
 		$BackupConfigFile = Get-Content $Path_to_Script
 		[decimal]$skip = 0
 		ForEach ( $line in $BackupConfigFile ) {
@@ -237,7 +236,7 @@ function UpdateScript {
 			}
 			$skip++
 		}
-		Move-Item $BackupFolder`\Update_PowerShell_7z_Backup-and-Restore $Path_to_Script -Force
+		Write-Output $GitScriptBody > $Path_to_Script
 		VariablesDoNotTouch
 		$UpdatedScriptFile = Get-Content $Path_to_Script
 		ForEach ( $line in $UpdatedScriptFile ) {
@@ -255,9 +254,6 @@ function UpdateScript {
 		}
 		$Script:ErrorLabelText = 'Script Updated, exiting... Please restart the Script'
 		ErrorForm
-  		if ( Test-Path $BackupFolder`TEMP\Update_PowerShell_7z_Backup-and-Restore) {
-    			Remove-Item $BackupFolder`\Update_PowerShell_7z_Backup-and-Restore
-       		}
 		$MainMenuForm.Close()
 	}
 	else {
