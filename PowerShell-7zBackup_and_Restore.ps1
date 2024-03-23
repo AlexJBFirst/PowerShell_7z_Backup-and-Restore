@@ -14,7 +14,7 @@ function VariablesAdvancedMenu{
 [String]$Script:RestoreDirectory="" #6
 [Decimal]$Script:NumberOfBackups="2" #7
 [Decimal]$Script:BackupDayFilter="15" #8
-[String]$Script:ScriptVersion="1.0.2" #9
+[String]$Script:ScriptVersion="1.0.3" #9
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
@@ -300,114 +300,97 @@ function LogForm {
 	$LogForm.Controls.Add($LogExitButton)
 	$LogForm.Controls.Add($LogTextBox)
 	$LogForm.Controls.Add($LogLabel)
-	$LogForm.Topmost = $true
 	#######################################################################################################
 	function LogFormJobBackup1{
 		$LogTextBox.Text = ''
 		$LogTextBox.Text = check_directories|Out-String
 		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			7z_save|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-				$LogTextBox.Text += "$_"
-				$LogTextBox.Text += "`r`n"
-				$LogTextBox.SelectionStart = $LogTextBox.TextLength
-				$LogTextBox.ScrollToCaret()
+			7z_save|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
 			}
 		}
 		else{
-			7z_save_SecondBackupFolder|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-				$LogTextBox.Text += "$_"
-				$LogTextBox.Text += "`r`n"
-				$LogTextBox.SelectionStart = $LogTextBox.TextLength
-				$LogTextBox.ScrollToCaret()
+			7z_save_SecondBackupFolder|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
 			}
 		}
 	}
 	function LogFormJobBackup2{
 		$LogTextBox.Text = ''
-		$LogTextBox.Text = check_directories|Out-String
+		$LogTextBox.AppendText($(check_directories|Out-String))
 		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			Backup_According_to_day_filter|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-				$LogTextBox.Text += "$_"
-				$LogTextBox.Text += "`r`n"
-				$LogTextBox.SelectionStart = $LogTextBox.TextLength
-				$LogTextBox.ScrollToCaret()
+			Backup_According_to_day_filter|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
 			}
 		}
 		else{
-			Backup_According_to_day_filter_SecondBackupFolder|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-				$LogTextBox.Text += "$_"
-				$LogTextBox.Text += "`r`n"
-				$LogTextBox.SelectionStart = $LogTextBox.TextLength
-				$LogTextBox.ScrollToCaret()
+			Backup_According_to_day_filter_SecondBackupFolder|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
 			}
 		}
 		if ([string]::IsNullOrEmpty($LogTextBox.Text)){
-			$LogTextBox.Text="There are nothing to backup"
+			$LogTextBox.AppendText("There are nothing to backup")
 		}
 	}
 	function LogFormJobBackup3{
 		$LogTextBox.Text = ''
-		$LogTextBox.Text = check_directories|Out-String
+		$LogTextBox.AppendText($(check_directories|Out-String))
 		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			ShellCopy|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-				$LogTextBox.Text += "$_"
-				$LogTextBox.Text += "`r`n"
-				$LogTextBox.SelectionStart = $LogTextBox.TextLength
-				$LogTextBox.ScrollToCaret()
+			ShellCopy|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
 			}
 		}
 		else{
-			ShellCopy_SecondBackupFolder|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-				$LogTextBox.Text += "$_"
-				$LogTextBox.Text += "`r`n"
-				$LogTextBox.SelectionStart = $LogTextBox.TextLength
-				$LogTextBox.ScrollToCaret()
+			ShellCopy_SecondBackupFolder|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
 			}
 		}
 		if ([string]::IsNullOrEmpty($LogTextBox.Text)){
-			$LogTextBox.Text="There are nothing to backup"
+			$LogTextBox.AppendText("There are nothing to backup")
 		}
 	}
 	function LogFormJobRestore1{
 		$LogTextBox.Text = ''
 		if ( Test-Path -Path $BackupFolder\Backups_before_restore ){}
 		else{
-			$LogTextBoxText+=New-Item -ItemType Directory $BackupFolder\Backups_before_restore|Out-String
-			$LogTextBoxText+=$(Write-Output "#####################################")|Out-String
-			$LogTextBox.Text += $LogTextBoxText
+			$LogTextBox.AppendText("$(New-Item -ItemType Directory $BackupFolder\Backups_before_restore|Out-String)")
+			$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
 		}
-		7z_BackupBeforeRestore|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-			$LogTextBox.Text += "$_"
-			$LogTextBox.Text += "`r`n"
-			$LogTextBox.SelectionStart = $LogTextBox.TextLength
-			$LogTextBox.ScrollToCaret()
-		}
-		$LogTextBox.Text += $(Write-Output "#####################################")|Out-String
-		$LogTextBox.SelectionStart = $LogTextBox.TextLength
-		$LogTextBox.ScrollToCaret()
-		if ($7z_BackupBeforeRestoreExecution -eq 'True'){
-			7z_restore|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-				$LogTextBox.Text += "$_"
-				$LogTextBox.Text += "`r`n"
-				$LogTextBox.SelectionStart = $LogTextBox.TextLength
-				$LogTextBox.ScrollToCaret()
+		7z_BackupBeforeRestore|Out-String -Stream|ForEach-Object {
+			if (-not [string]::IsNullOrEmpty($_)){
+				$LogTextBox.AppendText($_.Trim() + "`r`n")
 			}
-			$LogTextBox.Text += $(Write-Output "#####################################")|Out-String
-			$LogTextBox.SelectionStart = $LogTextBox.TextLength
-			$LogTextBox.ScrollToCaret()
+		}
+		$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
+		if ($7z_BackupBeforeRestoreExecution -eq 'True'){
+			7z_restore|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
+			}
+			$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
 		}
 	}
 	function LogFormJobRestore2{
 		$LogTextBox.Text = ''
-		7z_restore|Out-String -Stream|select-string -Pattern "\S"|ForEach-Object {
-			$LogTextBox.Text += "$_"
-			$LogTextBox.Text += "`r`n"
-			$LogTextBox.SelectionStart = $LogTextBox.TextLength
-			$LogTextBox.ScrollToCaret()
+		7z_restore|Out-String -Stream|ForEach-Object {
+			if (-not [string]::IsNullOrEmpty($_)){
+				$LogTextBox.AppendText($_.Trim() + "`r`n")
+			}
 		}
-		$LogTextBox.Text += $(Write-Output "#####################################")|Out-String
-		$LogTextBox.SelectionStart = $LogTextBox.TextLength
-		$LogTextBox.ScrollToCaret()
+		$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
 	}
 	#######################################################################################################
 	$LogForm.add_Shown({
@@ -445,7 +428,6 @@ function ErrorForm {
 	$ErrorForm.Controls.Add($ErrorExitButton)
 	$ErrorForm.AcceptButton = $ErrorExitButton
 	$ErrorForm.Controls.Add($ErrorLabel)
-	$ErrorForm.Topmost = $true
 	#######################################################################################################
 	$Script:ErrorResult = $ErrorForm.ShowDialog()
 }
@@ -524,7 +506,6 @@ function No7zip {
 	$No7zipForm.Controls.Add($No7zipOkButton)
 	$No7zipForm.Controls.Add($No7zipLabel)
 	$No7zipForm.Controls.Add($No7zipTextBox)
-	$No7zipForm.Topmost = $true
 	######################################################################################################
 	$Script:No7zipResult = $No7zipForm.ShowDialog()
 }
@@ -714,7 +695,6 @@ function BackupMenu {
 	$BackupMenuForm.Controls.Add($BackupMenuWhatToBackupTextBox)
 	$BackupMenuForm.Controls.Add($BackupMenuBackupDirectoryTextBox)
 	$BackupMenuForm.Controls.Add($BackupMenuSecondBackupDirectoryTextBox)
-	$BackupMenuForm.Topmost = $true
 	######################################################################################################
 	$Script:BackupMenuResult = $BackupMenuForm.ShowDialog()
 }
@@ -792,7 +772,6 @@ function RestoreMenuList {
 	$RestoreMenuListForm.Controls.Add($RestoreMenuListOKButton)
 	$RestoreMenuListForm.Controls.Add($RestoreMenuListLabel)
 	$RestoreMenuListForm.Controls.Add($RestoreMenuList)
-	$RestoreMenuListForm.Topmost = $true
 	######################################################################################################
 	if ($RestoreMenuList.SelectedItem){}
 		else{
@@ -934,7 +913,6 @@ function RestoreMenu {
 	$RestoreMenuForm.Controls.Add($RestoreMenuToRestoreLabel)
 	$RestoreMenuForm.Controls.Add($RestoreMenuRestoreDirectoryTextBox)
 	$RestoreMenuForm.Controls.Add($RestoreMenuBackupDirectoryTextBox)
-	$RestoreMenuForm.Topmost = $true
 	######################################################################################################
 	if ($RestoreMenuCheckBox.Checked){
 		$RestoreMenuRestoreAfterDisasterButton.Enabled = $true
@@ -1320,7 +1298,6 @@ function AdvancedMenu {
 	$AdvancedMenuForm.Controls.Add($AdvancedMenuWhatToBackupTextBox)
 	$AdvancedMenuForm.Controls.Add($AdvancedMenuRestoreFolderTextBox)
 	$AdvancedMenuForm.Controls.Add($AdvancedMenu7zDirectoryTextBox)
-	$AdvancedMenuForm.Topmost = $true
 	#######################################################################################################
 	$Script:AdvancedMenuResult = $AdvancedMenuForm.ShowDialog()
 }
@@ -1446,7 +1423,6 @@ function MainMenu {
 	$MainMenuForm.Controls.Add($MainMenulabel)
 	
 	#######################################################################################################
-	$MainMenuForm.Topmost = $true
 	$Script:MainMenuResult = $MainMenuForm.ShowDialog()
 }
 
