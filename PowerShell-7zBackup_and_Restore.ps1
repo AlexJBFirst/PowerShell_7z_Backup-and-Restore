@@ -1,6 +1,6 @@
 Param(
 	[Parameter(ValueFromPipeline,HelpMessage="For a simple backup job, enter 'SimpleBackup'`nFor a backup job with time filtering, enter 'TimeFilteredBackup'")]
-	[ValidateSet('SimpleBackup','TimeFilteredBackup','Copy')][String]$AutomationType
+	[ValidateSet('SimpleBackup','TimeFilteredBackup','Copy','Sync')][String]$AutomationType
 )
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -14,7 +14,7 @@ function VariablesAdvancedMenu{
 [String]$Script:RestoreDirectory="" #6
 [Decimal]$Script:NumberOfBackups="2" #7
 [Decimal]$Script:BackupDayFilter="15" #8
-[String]$Script:ScriptVersion="1.0.3" #9
+[String]$Script:ScriptVersion="1.0.4" #9
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
@@ -23,6 +23,7 @@ function VariablesDoNotTouch{
 $Script:Shell_command=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType SimpleBackup"
 $Script:Shell_command2=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType TimeFilteredBackup"
 $Script:Shell_command3=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType Copy"
+$Script:Shell_command4=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType Sync"
 $Script:OutputEncoding = [System.Text.Encoding]::UTF8
 $Script:ChangeMe1=$(Get-Content $Path_to_Script|Select-Object -Skip 8 -First 1)
 $Script:ChangeMe2=$(Get-Content $Path_to_Script|Select-Object -Skip 9 -First 1)
@@ -108,6 +109,36 @@ function ShellCopy_SecondBackupFolder {
 			Write-Output '####################################################'
 			Robocopy "$WhatToBackupPath" "$SecondBackupFolder" "$WhatToBackupChild" /mt /z
 		}
+	}
+}
+
+function SyncCopy {
+	$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
+	$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
+	if ( Test-Path -Path $BackupFolderModified ){}
+	else{
+		New-Item -ItemType Directory $BackupFolderModified
+	}
+	Robocopy "$WhatToBackup" "$BackupFolderModified" /MIR /z
+}
+
+function SyncCopy_SecondBackupFolder {
+	$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
+	$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
+	if ( Test-Path -Path $BackupFolderModified ){}
+	else{
+		New-Item -ItemType Directory $BackupFolderModified
+	}
+	Robocopy "$WhatToBackup" "$BackupFolderModified" /MIR /z
+	if ( Test-Path -Path $SecondBackupFolder ){
+		$SecondBackupFolderModified = Join-Path -Path $SecondBackupFolder -ChildPath $WhatToBackupChild
+		if ( Test-Path -Path $SecondBackupFolderModified ){}
+		else{
+			New-Item -ItemType Directory $SecondBackupFolderModified
+		}
+		Write-Output '####################################################'
+		Write-Output '####################################################'
+		Robocopy "$WhatToBackup" "$SecondBackupFolderModified" /MIR /z
 	}
 }
 
@@ -357,8 +388,23 @@ function LogForm {
 				}
 			}
 		}
-		if ([string]::IsNullOrEmpty($LogTextBox.Text)){
-			$LogTextBox.AppendText("There are nothing to backup")
+	}
+	function LogFormJobBackup4{
+		$LogTextBox.Text = ''
+		$LogTextBox.AppendText($(check_directories|Out-String))
+		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+			SyncCopy|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
+			}
+		}
+		else{
+			SyncCopy_SecondBackupFolder|Out-String -Stream|ForEach-Object {
+				if (-not [string]::IsNullOrEmpty($_)){
+					$LogTextBox.AppendText($_.Trim() + "`r`n")
+				}
+			}
 		}
 	}
 	function LogFormJobRestore1{
@@ -515,19 +561,19 @@ function BackupMenu {
 	#######################################################################################################
 	$BackupMenuForm = New-Object System.Windows.Forms.Form
 	$BackupMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$BackupMenuForm.ClientSize = New-Object System.Drawing.Size(820,670)
+	$BackupMenuForm.ClientSize = New-Object System.Drawing.Size(820,705)
 	$BackupMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
 	$BackupMenuForm.BackColor = 'Black'
 	$BackupMenuForm.ForeColor = 'White'
 	$BackupMenuForm.StartPosition = 'CenterScreen'
 	$BackupMenuForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$BackupMenuExitButton = New-Object System.Windows.Forms.Button
-	$BackupMenuExitButton.Location = New-Object System.Drawing.Point(360,615)
-	$BackupMenuExitButton.Size = New-Object System.Drawing.Size(100,35)
-	$BackupMenuExitButton.Text = 'Exit'
-	$BackupMenuExitButton.TextAlign = 'MiddleCenter'
-	$BackupMenuExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+	#######################################################################################################		
+	$BackupMenuLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuLabel.Location = New-Object System.Drawing.Point(10,5)
+	$BackupMenuLabel.Size = New-Object System.Drawing.Size(800,20)
+	$BackupMenuLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuLabel.Text = "Please select one of the options below."
 	#######################################################################################################
 	$BackupMenuClassicBackupButton = New-Object System.Windows.Forms.Button
 	$BackupMenuClassicBackupButton.Location = New-Object System.Drawing.Point(10,30)
@@ -540,6 +586,14 @@ function BackupMenu {
 		DiskVariablesBackup
 		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
 	})
+	######################################################################################################
+	$BackupMenuClassicBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuClassicBackupLabel.Location = New-Object System.Drawing.Point(220,30)
+	$BackupMenuClassicBackupLabel.Size = New-Object System.Drawing.Size(590,60)
+	$BackupMenuClassicBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuClassicBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuClassicBackupLabel.Text = "Click this button if you want to make a regular backup copy of the directory(file) specified below"
+	$BackupMenuClassicBackupLabel.BorderStyle = "FixedSingle"
 	#######################################################################################################
 	$BackupMenuTimeFiltredBackupButton = New-Object System.Windows.Forms.Button
 	$BackupMenuTimeFiltredBackupButton.Location = New-Object System.Drawing.Point(10,100)
@@ -552,6 +606,14 @@ function BackupMenu {
 		DiskVariablesBackup
 		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
 	})
+	######################################################################################################
+	$BackupMenuTimeFiltredBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuTimeFiltredBackupLabel.Location = New-Object System.Drawing.Point(220,100)
+	$BackupMenuTimeFiltredBackupLabel.Size = New-Object System.Drawing.Size(590,60)
+	$BackupMenuTimeFiltredBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuTimeFiltredBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuTimeFiltredBackupLabel.Text = "If you want to archive only files older than $BackupDayFilter days in the folder specified below, click this button."
+	$BackupMenuTimeFiltredBackupLabel.BorderStyle = "FixedSingle"
 	#######################################################################################################
 	$BackupMenuSimpleCopyButton = New-Object System.Windows.Forms.Button
 	$BackupMenuSimpleCopyButton.Location = New-Object System.Drawing.Point(10,170)
@@ -564,45 +626,73 @@ function BackupMenu {
 		DiskVariablesBackup
 		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
 	})
+	######################################################################################################
+	$BackupMenuSimpleCopyLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuSimpleCopyLabel.Location = New-Object System.Drawing.Point(220,170)
+	$BackupMenuSimpleCopyLabel.Size = New-Object System.Drawing.Size(590,60)
+	$BackupMenuSimpleCopyLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuSimpleCopyLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuSimpleCopyLabel.Text = "If you just need to copy (update) a file or directory in the location of your archive copies, this option is for you."
+	$BackupMenuSimpleCopyLabel.BorderStyle = "FixedSingle"
 	#######################################################################################################
-	$BackupMenuClassicBackupTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuClassicBackupTextBox.Location = New-Object System.Drawing.Point(10,495)
-	$BackupMenuClassicBackupTextBox.Size = New-Object System.Drawing.Size(800,35)
-	$BackupMenuClassicBackupTextBox.Text = "$Shell_command"
-	$BackupMenuClassicBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuClassicBackupTextBox.ReadOnly = $true
-	#######################################################################################################
-	$BackupMenuTimeFiltredBackupTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuTimeFiltredBackupTextBox.Location = New-Object System.Drawing.Point(10,535)
-	$BackupMenuTimeFiltredBackupTextBox.Size = New-Object System.Drawing.Size(800,35)
-	$BackupMenuTimeFiltredBackupTextBox.Text = "$Shell_command2"
-	$BackupMenuTimeFiltredBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuTimeFiltredBackupTextBox.ReadOnly = $true
-	#######################################################################################################
-	$BackupMenuSimpleCopyTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuSimpleCopyTextBox.Location = New-Object System.Drawing.Point(10,575)
-	$BackupMenuSimpleCopyTextBox.Size = New-Object System.Drawing.Size(800,35)
-	$BackupMenuSimpleCopyTextBox.Text = "$Shell_command3"
-	$BackupMenuSimpleCopyTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSimpleCopyTextBox.ReadOnly = $true
+	$BackupMenuSyncButton = New-Object System.Windows.Forms.Button
+	$BackupMenuSyncButton.Location = New-Object System.Drawing.Point(10,240)
+	$BackupMenuSyncButton.Size = New-Object System.Drawing.Size(200,60)
+	$BackupMenuSyncButton.Text = 'Sync Job'
+	$BackupMenuSyncButton.TextAlign = 'MiddleCenter'
+	$BackupMenuSyncButton.Add_Click({
+		$Script:LogFormJob = {LogFormJobBackup4}
+		LogForm
+		DiskVariablesBackup
+		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
+	})
+	######################################################################################################
+	$BackupMenuSyncLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuSyncLabel.Location = New-Object System.Drawing.Point(220,240)
+	$BackupMenuSyncLabel.Size = New-Object System.Drawing.Size(590,60)
+	$BackupMenuSyncLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuSyncLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuSyncLabel.Text = "If you want to synchronize one folder with another."
+	$BackupMenuSyncLabel.BorderStyle = "FixedSingle"
+	######################################################################################################
+	$BackupMenuFromBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuFromBackupLabel.Location = New-Object System.Drawing.Point(10,310)
+	$BackupMenuFromBackupLabel.Size = New-Object System.Drawing.Size(800,20)
+	$BackupMenuFromBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuFromBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuFromBackupLabel.Text = "Folder(File) to be archived:"
 	#######################################################################################################
 	$BackupMenuWhatToBackupTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuWhatToBackupTextBox.Location = New-Object System.Drawing.Point(10,265)
-	$BackupMenuWhatToBackupTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuWhatToBackupTextBox.Location = New-Object System.Drawing.Point(10,335)
+	$BackupMenuWhatToBackupTextBox.Size = New-Object System.Drawing.Size(800,25)
 	$BackupMenuWhatToBackupTextBox.Text = "$WhatToBackup"
 	$BackupMenuWhatToBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$BackupMenuWhatToBackupTextBox.ReadOnly = $true
+	######################################################################################################
+	$BackupMenuToBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuToBackupLabel.Location = New-Object System.Drawing.Point(10,365)
+	$BackupMenuToBackupLabel.Size = New-Object System.Drawing.Size(800,20)
+	$BackupMenuToBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuToBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuToBackupLabel.Text = "Backup folder are located in:"
 	#######################################################################################################	
 	$BackupMenuBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,315)
-	$BackupMenuBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,390)
+	$BackupMenuBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,25)
 	$BackupMenuBackupDirectoryTextBox.Text = "$BackupFolder"
 	$BackupMenuBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$BackupMenuBackupDirectoryTextBox.ReadOnly = $true
+	######################################################################################################
+	$BackupMenuSecondBackupLabel = New-Object System.Windows.Forms.Label
+	$BackupMenuSecondBackupLabel.Location = New-Object System.Drawing.Point(10,420)
+	$BackupMenuSecondBackupLabel.Size = New-Object System.Drawing.Size(800,20)
+	$BackupMenuSecondBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuSecondBackupLabel.TextAlign = 'MiddleCenter'
+	$BackupMenuSecondBackupLabel.Text = "Second Backup folder are located in:"
 	#######################################################################################################	
 	$BackupMenuSecondBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuSecondBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,390)
-	$BackupMenuSecondBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
+	$BackupMenuSecondBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,445)
+	$BackupMenuSecondBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,25)
 	$BackupMenuSecondBackupDirectoryTextBox.Text = "$(
 		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
 			Write-Output "Second Backup folder is not set"
@@ -613,65 +703,48 @@ function BackupMenu {
 	)"
 	$BackupMenuSecondBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$BackupMenuSecondBackupDirectoryTextBox.ReadOnly = $true
-	#######################################################################################################		
-	$BackupMenuLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuLabel.Location = New-Object System.Drawing.Point(10,5)
-	$BackupMenuLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuLabel.Text = "Please select one of the options below."
-	######################################################################################################
-	$BackupMenuClassicBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuClassicBackupLabel.Location = New-Object System.Drawing.Point(220,30)
-	$BackupMenuClassicBackupLabel.Size = New-Object System.Drawing.Size(590,60)
-	$BackupMenuClassicBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuClassicBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuClassicBackupLabel.Text = "Click this button if you want to make a regular backup copy of the directory(file) specified below"
-	$BackupMenuClassicBackupLabel.BorderStyle = "FixedSingle"
-	######################################################################################################
-	$BackupMenuTimeFiltredBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuTimeFiltredBackupLabel.Location = New-Object System.Drawing.Point(220,100)
-	$BackupMenuTimeFiltredBackupLabel.Size = New-Object System.Drawing.Size(590,60)
-	$BackupMenuTimeFiltredBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuTimeFiltredBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuTimeFiltredBackupLabel.Text = "If you want to archive only files older than $BackupDayFilter days in the folder specified below, click this button."
-	$BackupMenuTimeFiltredBackupLabel.BorderStyle = "FixedSingle"
-	######################################################################################################
-	$BackupMenuSimpleCopyLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSimpleCopyLabel.Location = New-Object System.Drawing.Point(220,170)
-	$BackupMenuSimpleCopyLabel.Size = New-Object System.Drawing.Size(590,60)
-	$BackupMenuSimpleCopyLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSimpleCopyLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuSimpleCopyLabel.Text = "If you just need to copy (update) a file or directory in the location of your archive copies, this option is for you."
-	$BackupMenuSimpleCopyLabel.BorderStyle = "FixedSingle"
-	######################################################################################################
-	$BackupMenuFromBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuFromBackupLabel.Location = New-Object System.Drawing.Point(10,240)
-	$BackupMenuFromBackupLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuFromBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuFromBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuFromBackupLabel.Text = "Folder(File) to be archived:"
-	######################################################################################################
-	$BackupMenuToBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuToBackupLabel.Location = New-Object System.Drawing.Point(10,300)
-	$BackupMenuToBackupLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuToBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuToBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuToBackupLabel.Text = "Backup folder are located in:"
-	######################################################################################################
-	$BackupMenuSecondBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSecondBackupLabel.Location = New-Object System.Drawing.Point(10,365)
-	$BackupMenuSecondBackupLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuSecondBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSecondBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuSecondBackupLabel.Text = "Second Backup folder are located in:"
 	######################################################################################################
 	$BackupMenuSpaceLeftOnDiskLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(10,430)
+	$BackupMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(10,475)
 	$BackupMenuSpaceLeftOnDiskLabel.Size = New-Object System.Drawing.Size(800,60)
 	$BackupMenuSpaceLeftOnDiskLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
 	$BackupMenuSpaceLeftOnDiskLabel.TextAlign = 'MiddleCenter'
 	$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
+	#######################################################################################################
+	$BackupMenuClassicBackupTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuClassicBackupTextBox.Location = New-Object System.Drawing.Point(10,540)
+	$BackupMenuClassicBackupTextBox.Size = New-Object System.Drawing.Size(800,25)
+	$BackupMenuClassicBackupTextBox.Text = "$Shell_command"
+	$BackupMenuClassicBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuClassicBackupTextBox.ReadOnly = $true
+	#######################################################################################################
+	$BackupMenuTimeFiltredBackupTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuTimeFiltredBackupTextBox.Location = New-Object System.Drawing.Point(10,570)
+	$BackupMenuTimeFiltredBackupTextBox.Size = New-Object System.Drawing.Size(800,25)
+	$BackupMenuTimeFiltredBackupTextBox.Text = "$Shell_command2"
+	$BackupMenuTimeFiltredBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuTimeFiltredBackupTextBox.ReadOnly = $true
+	#######################################################################################################
+	$BackupMenuSimpleCopyTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuSimpleCopyTextBox.Location = New-Object System.Drawing.Point(10,600)
+	$BackupMenuSimpleCopyTextBox.Size = New-Object System.Drawing.Size(800,25)
+	$BackupMenuSimpleCopyTextBox.Text = "$Shell_command3"
+	$BackupMenuSimpleCopyTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuSimpleCopyTextBox.ReadOnly = $true
+	#######################################################################################################
+	$BackupMenuSyncTextBox = New-Object System.Windows.Forms.TextBox
+	$BackupMenuSyncTextBox.Location = New-Object System.Drawing.Point(10,630)
+	$BackupMenuSyncTextBox.Size = New-Object System.Drawing.Size(800,25)
+	$BackupMenuSyncTextBox.Text = "$Shell_command4"
+	$BackupMenuSyncTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
+	$BackupMenuSyncTextBox.ReadOnly = $true
+	#######################################################################################################
+	$BackupMenuExitButton = New-Object System.Windows.Forms.Button
+	$BackupMenuExitButton.Location = New-Object System.Drawing.Point(360,660)
+	$BackupMenuExitButton.Size = New-Object System.Drawing.Size(100,35)
+	$BackupMenuExitButton.Text = 'Exit'
+	$BackupMenuExitButton.TextAlign = 'MiddleCenter'
+	$BackupMenuExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
 	######################################################################################################
 	$BackupMenuForm.AcceptButton = $BackupMenuExitButton
 	$BackupMenuForm.Controls.Add($BackupMenuExitButton)
@@ -681,6 +754,8 @@ function BackupMenu {
 	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupButton)
 	$BackupMenuForm.AcceptButton = $BackupMenuSimpleCopyButton
 	$BackupMenuForm.Controls.Add($BackupMenuSimpleCopyButton)
+	$BackupMenuForm.AcceptButton = $BackupMenuSyncButton
+	$BackupMenuForm.Controls.Add($BackupMenuSyncButton)
 	$BackupMenuForm.Controls.Add($BackupMenuLabel)
 	$BackupMenuForm.Controls.Add($BackupMenuClassicBackupLabel)
 	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupLabel)
@@ -689,13 +764,20 @@ function BackupMenu {
 	$BackupMenuForm.Controls.Add($BackupMenuFromBackupLabel)
 	$BackupMenuForm.Controls.Add($BackupMenuToBackupLabel)
 	$BackupMenuForm.Controls.Add($BackupMenuSecondBackupLabel)
+	$BackupMenuForm.Controls.Add($BackupMenuSyncLabel)
 	$BackupMenuForm.Controls.Add($BackupMenuClassicBackupTextBox)
 	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupTextBox)
 	$BackupMenuForm.Controls.Add($BackupMenuSimpleCopyTextBox)
 	$BackupMenuForm.Controls.Add($BackupMenuWhatToBackupTextBox)
 	$BackupMenuForm.Controls.Add($BackupMenuBackupDirectoryTextBox)
 	$BackupMenuForm.Controls.Add($BackupMenuSecondBackupDirectoryTextBox)
+	$BackupMenuForm.Controls.Add($BackupMenuSyncTextBox)
 	######################################################################################################
+	$WhatToBackupType = $WhatToBackup[-1]
+	if ( $WhatToBackupType -eq '\' ){}
+	else{
+		$BackupMenuSyncButton.Enabled = $false
+	}
 	$Script:BackupMenuResult = $BackupMenuForm.ShowDialog()
 }
 
@@ -1426,6 +1508,8 @@ function MainMenu {
 	$Script:MainMenuResult = $MainMenuForm.ShowDialog()
 }
 
+$Attention='Please run the script at least once and fill in all the mandatory fields.`nAttention, if you corrected the script by hand, then return the value of the NumberOfBackups and BackupDayFilter variables above zero'
+
 If ([string]::IsNullOrEmpty($AutomationType)){
 	$run='True'
 	while ($run -eq 'True'){
@@ -1456,7 +1540,7 @@ If ([string]::IsNullOrEmpty($AutomationType)){
 }
 elseif ( "SimpleBackup" -eq $AutomationType ){
 	if (check_all_params){
-		Write-Output "Please run the script at least once and fill in all the mandatory fields.`nAttention, if you corrected the script by hand, then return the value of the NumberOfBackups and BackupDayFilter variables above zero" 
+		Write-Output "$Attention" 
 	}
 	else{
 		check_directories
@@ -1470,7 +1554,7 @@ elseif ( "SimpleBackup" -eq $AutomationType ){
 }
 elseif ( "TimeFilteredBackup" -eq $AutomationType ){
 	if (check_all_params){
-		Write-Output "Please run the script at least once and fill in all the mandatory fields.`nAttention, if you corrected the script by hand, then return the value of the NumberOfBackups and BackupDayFilter variables above zero"
+		Write-Output "$Attention"
 	}
 	else{
 		check_directories
@@ -1484,7 +1568,7 @@ elseif ( "TimeFilteredBackup" -eq $AutomationType ){
 }
 elseif ( "Copy" -eq $AutomationType ){
 	if (check_all_params){
-		Write-Output "Please run the script at least once and fill in all the mandatory fields.`nAttention, if you corrected the script by hand, then return the value of the NumberOfBackups and BackupDayFilter variables above zero"
+		Write-Output "$Attention"
 	}
 	else{
 		check_directories
@@ -1493,6 +1577,20 @@ elseif ( "Copy" -eq $AutomationType ){
 		}
 		else{
 			ShellCopy_SecondBackupFolder
+		}
+	}
+}
+elseif ( "Sync" -eq $AutomationType ){
+	if (check_all_params){
+		Write-Output "$Attention"
+	}
+	else{
+		check_directories
+		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
+			SyncCopy
+		}
+		else{
+			SyncCopy_SecondBackupFolder
 		}
 	}
 }
