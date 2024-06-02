@@ -8,10 +8,11 @@ After a while, the project grew a little, it got a graphical interface and, in p
 
 You are presented with a program that:  
 1) Stores its settings in itself;  
-2) It can make three types of copy jobs, with the ability to choose the number of backups to store.:  
+2) It can make four types of copy jobs, with the ability to choose the number of backups to store.:  
 - Regular - when you need to archive the entire directory with subdirectories;  
 - Time-based - is used to archive multiple files from a directory, where you can use a filter by file creation date. Only those files whose creation date differs from the date of the script launch by the selected number of days, will be included in the archive;
 - Simple copy - copies a file or directory from the source directory to the destination directory and to a secondary backup folder, if one is provided;
+- Sync - Synchronize one directory with another or with two different directories at the same time;
 3) It can restore archive copies created by this program:
 - Before restoring the archived copies, you can also enable the option to create backups of the directory to which the files will be restored.  
 - If the option to create an archive before restoring was selected, these archives can also be restored using a separate menu!)  
@@ -123,10 +124,13 @@ In arguments field put one of the commands below:
 >-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType SimpleBackup  
 
 OR  
->-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType TimeFilteredBackup
+>-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType TimeFilteredBackup  
 
 OR
->-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType Copy
+>-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType Copy  
+
+OR
+>-file "D:\Scripts\PowerShell-7zBackup_and_Restore.ps1" -AutomationType Sync  
 
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/0f2624bf-c3f1-4bb9-940f-dc704f747c7f)   
 
@@ -138,7 +142,7 @@ File recovery can be done exclusively from the GUI!
 ### Main Menu  
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/42a41c61-a254-463f-a823-122407a6b372)  
 ### Backup Menu  
-![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/d126ee61-1f3e-421f-8ad7-75308ce75097)  
+![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/523dd83a-d32b-44af-b3e9-55218409d02e)  
 ### Simple Backup Job  
 ![image](https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/assets/155481723/e4bc604f-9391-4e9c-bc1e-f42efeb9bccc)
 ### Created Backup  
