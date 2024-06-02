@@ -14,7 +14,7 @@ function VariablesAdvancedMenu{
 [String]$Script:RestoreDirectory="" #6
 [Decimal]$Script:NumberOfBackups="2" #7
 [Decimal]$Script:BackupDayFilter="15" #8
-[String]$Script:ScriptVersion="1.0.4" #9
+[String]$Script:ScriptVersion="1.0.5" #9
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
@@ -62,15 +62,15 @@ function check_directories{
 }
 
 function ShellCopy {
-	$WhatToBackupType = $WhatToBackup[-1]
-	if ( $WhatToBackupType -eq '\' ){
+	if ( $WhatToBackup[-1] -eq '\' ){
+		$SourceDirectory=$WhatToBackup.TrimEnd('\')
 		$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
 		$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
 		if ( Test-Path -Path $BackupFolderModified ){}
 		else{
 			New-Item -ItemType Directory $BackupFolderModified
 		}
-		Robocopy "$WhatToBackup" "$BackupFolderModified" /E /z
+		Robocopy "$SourceDirectory" "$BackupFolderModified" /E /z
 	}
 	else{
 		$WhatToBackupPath = Split-Path $WhatToBackup -Parent
@@ -80,15 +80,15 @@ function ShellCopy {
 }
 
 function ShellCopy_SecondBackupFolder {
-	$WhatToBackupType = $WhatToBackup[-1]
-	if ( $WhatToBackupType -eq '\' ){
+	if ( $WhatToBackup[-1] -eq '\' ){
+		$SourceDirectory=$WhatToBackup.TrimEnd('\')
 		$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
 		$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
 		if ( Test-Path -Path $BackupFolderModified ){}
 		else{
 			New-Item -ItemType Directory $BackupFolderModified
 		}
-		Robocopy "$WhatToBackup" "$BackupFolderModified" /E /z
+		Robocopy "$SourceDirectory" "$BackupFolderModified" /E /z
 		if ( Test-Path -Path $SecondBackupFolder ){
 			$SecondBackupFolderModified = Join-Path -Path $SecondBackupFolder -ChildPath $WhatToBackupChild
 			if ( Test-Path -Path $SecondBackupFolderModified ){}
@@ -97,7 +97,7 @@ function ShellCopy_SecondBackupFolder {
 			}
 			Write-Output '####################################################'
 			Write-Output '####################################################'
-			Robocopy "$WhatToBackup" "$SecondBackupFolderModified" /E /z
+			Robocopy "$SourceDirectory" "$SecondBackupFolderModified" /E /z
 		}
 	}
 	else{
@@ -113,23 +113,25 @@ function ShellCopy_SecondBackupFolder {
 }
 
 function SyncCopy {
+	$SourceDirectory=$WhatToBackup.TrimEnd('\')
 	$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
 	$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
 	if ( Test-Path -Path $BackupFolderModified ){}
 	else{
 		New-Item -ItemType Directory $BackupFolderModified
 	}
-	Robocopy "$WhatToBackup" "$BackupFolderModified" /MIR /z
+	Robocopy "$SourceDirectory" "$BackupFolderModified" /MIR /z
 }
 
 function SyncCopy_SecondBackupFolder {
+	$SourceDirectory=$WhatToBackup.TrimEnd('\')
 	$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
 	$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
 	if ( Test-Path -Path $BackupFolderModified ){}
 	else{
 		New-Item -ItemType Directory $BackupFolderModified
 	}
-	Robocopy "$WhatToBackup" "$BackupFolderModified" /MIR /z
+	Robocopy "$SourceDirectory" "$BackupFolderModified" /MIR /z
 	if ( Test-Path -Path $SecondBackupFolder ){
 		$SecondBackupFolderModified = Join-Path -Path $SecondBackupFolder -ChildPath $WhatToBackupChild
 		if ( Test-Path -Path $SecondBackupFolderModified ){}
@@ -138,7 +140,7 @@ function SyncCopy_SecondBackupFolder {
 		}
 		Write-Output '####################################################'
 		Write-Output '####################################################'
-		Robocopy "$WhatToBackup" "$SecondBackupFolderModified" /MIR /z
+		Robocopy "$SourceDirectory" "$SecondBackupFolderModified" /MIR /z
 	}
 }
 
