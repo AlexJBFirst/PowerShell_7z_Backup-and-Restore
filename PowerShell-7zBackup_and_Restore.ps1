@@ -14,7 +14,7 @@ function VariablesAdvancedMenu{
 [String]$Script:RestoreDirectory="" #6
 [Decimal]$Script:NumberOfBackups="2" #7
 [Decimal]$Script:BackupDayFilter="15" #8
-[String]$Script:ScriptVersion="1.0.8" #9
+[String]$Script:ScriptVersion="1.0.9" #9
 }
 ####################################Variables.Changeble.END############################################
 ####################################Variables##########################################################
@@ -514,7 +514,6 @@ function No7zip {
 			$Script:run='False'
 			VariablesDoNotTouch
 			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe2","`[String]$Script:7z_directory`=`"$7z_directory\`" `#2") | Set-Content -Encoding $Encoding $Path_to_Script
-			Get-Content -Encoding $Encoding $Path_to_Script|Set-Content -Encoding $Encoding $Path_to_Script
 			$No7zipForm.Close()
 		}
 		else{
@@ -1061,7 +1060,6 @@ function AdvancedMenu {
 			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content -Encoding $Encoding $Path_to_Script
 			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content -Encoding $Encoding $Path_to_Script
 			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content -Encoding $Encoding $Path_to_Script
-			Get-Content -Encoding $Encoding $Path_to_Script|Set-Content -Encoding $Encoding $Path_to_Script
 			$ErrorLabelText = 'The configurations are set, please restart the script'
 			ErrorForm
 			$AdvancedMenuForm.Close()
@@ -1091,7 +1089,6 @@ function AdvancedMenu {
 		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content -Encoding $Encoding $Path_to_Script
 		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content -Encoding $Encoding $Path_to_Script
 		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content -Encoding $Encoding $Path_to_Script
-		Get-Content -Encoding $Encoding $Path_to_Script|Set-Content -Encoding $Encoding $Path_to_Script
 		(Get-Variable -Name AdvancedMenuBackupFolderTextBox -Scope 1).Value.Text = $BackupFolder
 		(Get-Variable -Name AdvancedMenuSecondBackupFolderTextBox -Scope 1).Value.Text = $SecondBackupFolder
 		(Get-Variable -Name AdvancedMenuWhatToBackupTextBox -Scope 1).Value.Text = $WhatToBackup
