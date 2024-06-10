@@ -25,14 +25,14 @@ $Script:Shell_command2=Write-Output "powershell -file `"$Path_to_Script`" -Autom
 $Script:Shell_command3=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType Copy"
 $Script:Shell_command4=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType Sync"
 $Script:OutputEncoding = [System.Text.Encoding]::UTF8
-$Script:ChangeMe1=$(Get-Content $Path_to_Script|Select-Object -Skip 8 -First 1)
-$Script:ChangeMe2=$(Get-Content $Path_to_Script|Select-Object -Skip 9 -First 1)
-$Script:ChangeMe3=$(Get-Content $Path_to_Script|Select-Object -Skip 10 -First 1)
-$Script:ChangeMe4=$(Get-Content $Path_to_Script|Select-Object -Skip 11 -First 1)
-$Script:ChangeMe5=$(Get-Content $Path_to_Script|Select-Object -Skip 12 -First 1)
-$Script:ChangeMe6=$(Get-Content $Path_to_Script|Select-Object -Skip 13 -First 1)
-$Script:ChangeMe7=$(Get-Content $Path_to_Script|Select-Object -Skip 14 -First 1)
-$Script:ChangeMe8=$(Get-Content $Path_to_Script|Select-Object -Skip 15 -First 1)
+$Script:ChangeMe1=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 8 -First 1)
+$Script:ChangeMe2=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 9 -First 1)
+$Script:ChangeMe3=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 10 -First 1)
+$Script:ChangeMe4=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 11 -First 1)
+$Script:ChangeMe5=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 12 -First 1)
+$Script:ChangeMe6=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 13 -First 1)
+$Script:ChangeMe7=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 14 -First 1)
+$Script:ChangeMe8=$(Get-Content -Encoding utf8 $Path_to_Script|Select-Object -Skip 15 -First 1)
 }
 function DiskVariablesBackup {
 $Script:DriveLetter_backups=($BackupFolder).split(':')[0]
@@ -258,7 +258,7 @@ function CheckUpdate {
 function UpdateScript {
 	ping github.com -n 1
 	if ($LASTEXITCODE -eq 0) {
-		$BackupConfigFile = Get-Content $Path_to_Script
+		$BackupConfigFile = Get-Content -Encoding utf8 $Path_to_Script
 		[decimal]$skip = 0
 		ForEach ( $line in $BackupConfigFile ) {
 			if ($line -match '.*#1') {
@@ -271,7 +271,7 @@ function UpdateScript {
 		}
 		Write-Output $GitScriptBody > $Path_to_Script
 		VariablesDoNotTouch
-		$UpdatedScriptFile = Get-Content $Path_to_Script
+		$UpdatedScriptFile = Get-Content -Encoding utf8 $Path_to_Script
 		ForEach ( $line in $UpdatedScriptFile ) {
 			if ($line -match '.*#1') {
 				$skipstart = $skip
@@ -283,7 +283,7 @@ function UpdateScript {
 		for ($a = 0;$a -le 7;$a++){
 			$BackupConfigString = $BackupConfig[$a]
 			$UpdatedConfigString = $UpdatedConfig[$a]
-			(Get-Content $Path_to_Script).Replace("$UpdatedConfigString","$BackupConfigString") | Set-Content $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$UpdatedConfigString","$BackupConfigString") | Set-Content -Encoding utf8 $Path_to_Script
 		}
 		$Script:ErrorLabelText = 'Script Updated, exiting... Please restart the Script'
 		ErrorForm
@@ -507,7 +507,7 @@ function No7zip {
 		if ( Test-Path -Path "$7z_directory\7z.exe" ){
 			$Script:run='False'
 			VariablesDoNotTouch
-			(Get-Content $Path_to_Script).Replace("$ChangeMe2","`[String]$Script:7z_directory`=`"$7z_directory\`" `#2") | Set-Content $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe2","`[String]$Script:7z_directory`=`"$7z_directory\`" `#2") | Set-Content -Encoding utf8 $Path_to_Script
 			$No7zipForm.Close()
 		}
 		else{
@@ -1046,14 +1046,14 @@ function AdvancedMenu {
 		}
 		else{
 			VariablesDoNotTouch
-			(Get-Content $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content $Path_to_Script
-			(Get-Content $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content -Encoding utf8 $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content -Encoding utf8 $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content -Encoding utf8 $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content -Encoding utf8 $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content -Encoding utf8 $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content -Encoding utf8 $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content -Encoding utf8 $Path_to_Script
+			(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content -Encoding utf8 $Path_to_Script
 			$ErrorLabelText = 'The configurations are set, please restart the script'
 			ErrorForm
 			$AdvancedMenuForm.Close()
@@ -1075,14 +1075,14 @@ function AdvancedMenu {
 		$Script:RestoreDirectory=""
 		$Script:NumberOfBackups="2"
 		$Script:BackupDayFilter="15"
-		(Get-Content $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content $Path_to_Script
-		(Get-Content $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content -Encoding utf8 $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content -Encoding utf8 $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content -Encoding utf8 $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content -Encoding utf8 $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content -Encoding utf8 $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content -Encoding utf8 $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content -Encoding utf8 $Path_to_Script
+		(Get-Content -Encoding utf8 $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content -Encoding utf8 $Path_to_Script
 		(Get-Variable -Name AdvancedMenuBackupFolderTextBox -Scope 1).Value.Text = $BackupFolder
 		(Get-Variable -Name AdvancedMenuSecondBackupFolderTextBox -Scope 1).Value.Text = $SecondBackupFolder
 		(Get-Variable -Name AdvancedMenuWhatToBackupTextBox -Scope 1).Value.Text = $WhatToBackup
