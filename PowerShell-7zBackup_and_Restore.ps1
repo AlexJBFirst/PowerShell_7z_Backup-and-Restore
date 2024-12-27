@@ -2980,7 +2980,7 @@ End {
 		$MainMenu_Update_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
 		$MainMenu_Update_BUTTON.Add_Click({
 			if ($MainMenu_Update_BUTTON.Tag.ScriptUpdate -eq $true){
-				UpdateScript -ScriptPath $ScriptPath -GitScriptBody $GitScriptBody
+				UpdateScript -ScriptPath $ScriptPath -GitScriptBody $MainMenu_Update_BUTTON.Tag.GitScriptBody
 			}
 			$MainMenu_Update_BUTTON.Tag = CheckUpdate
 		})
