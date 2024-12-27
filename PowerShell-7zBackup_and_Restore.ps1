@@ -30,7 +30,7 @@ End {
 	Add-Type -AssemblyName System.Drawing
 	#PARAMS########################################################################################END
 	#IMPORTANT_VARIABLES###########################################################################
-	$ScriptVersion = [System.Version]::Parse("2.0.0")
+	$ScriptVersion = [System.Version]::Parse("2.0.1")
 	$Path_to_Script = $MyInvocation.MyCommand.Path
 	$Running_Folder = Split-Path -Parent $Path_to_Script
 	$ScriptPath = $MyInvocation.MyCommand.Path
@@ -1033,7 +1033,7 @@ End {
 		}
 		$GitScriptBody = (Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1).content -split "`r`n"
 		$ScriptVersionScript = $ScriptVersion
-		$MatchedVersion = ($GitScriptBody -split "`n" | Where-Object {$_ -match 'System.Version'})
+		$MatchedVersion = ($GitScriptBody -split "`n" | Where-Object {$_ -match '\[System.Version\]::Parse'})
 		if ([string]::IsNullOrWhiteSpace($MatchedVersion)){
 			$MainMenu_Update_BUTTON.Text = 'Nothing to update'
 			$MainMenu_Update_BUTTON.Enabled = $false
