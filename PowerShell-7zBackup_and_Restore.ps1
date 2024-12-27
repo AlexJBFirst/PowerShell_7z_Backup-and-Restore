@@ -1,1604 +1,3059 @@
+#PARAMS########################################################################################
 Param(
-	[Parameter(ValueFromPipeline,HelpMessage="For a simple backup job, enter 'SimpleBackup'`nFor a backup job with time filtering, enter 'TimeFilteredBackup'")]
-	[ValidateSet('SimpleBackup','TimeFilteredBackup','Copy','Sync')][String]$AutomationType
+	[Parameter(ValueFromPipeline, HelpMessage = "For a simple backup job, enter 'SimpleBackup'`nFor a backup job with time filtering, enter 'TimeFilteredBackup'")]
+	[ValidateSet('SimpleBackup', 'TimeFilteredBackup', 'Copy', 'Sync')]
+	[String]$AutomationType,
+
+	[Parameter(ValueFromPipeline, HelpMessage = "If you have already opened this script in the GUI, you can use the selected saved profile as the main profile for AutomationType tasks")]
+	[ValidateNotNull()]
+	[string[]]$ProfileName
 )
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-####################################Variables.Changeble###############################################
-function VariablesAdvancedMenu{
-[String]$Script:BackupFolder="" #1
-[String]$Script:7z_directory="C:\Program Files\7-Zip\" #2
-[String]$Script:SecondBackupFolder="" #3
-[String]$Script:BackupName="" #4
-[String]$Script:WhatToBackup="" #5
-[String]$Script:RestoreDirectory="" #6
-[Decimal]$Script:NumberOfBackups="2" #7
-[Decimal]$Script:BackupDayFilter="15" #8
-[String]$Script:ScriptVersion="1.0.9" #9
-}
-####################################Variables.Changeble.END############################################
-####################################Variables##########################################################
-$Path_to_Script=$MyInvocation.MyCommand.Path
-function VariablesDoNotTouch{
-$Script:Shell_command=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType SimpleBackup"
-$Script:Shell_command2=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType TimeFilteredBackup"
-$Script:Shell_command3=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType Copy"
-$Script:Shell_command4=Write-Output "powershell -file `"$Path_to_Script`" -AutomationType Sync"
-$Script:OutputEncoding = [System.Text.Encoding]::$Encoding
-$Script:ChangeMe1=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 8 -First 1)
-$Script:ChangeMe2=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 9 -First 1)
-$Script:ChangeMe3=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 10 -First 1)
-$Script:ChangeMe4=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 11 -First 1)
-$Script:ChangeMe5=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 12 -First 1)
-$Script:ChangeMe6=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 13 -First 1)
-$Script:ChangeMe7=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 14 -First 1)
-$Script:ChangeMe8=$(Get-Content -Encoding $Encoding $Path_to_Script|Select-Object -Skip 15 -First 1)
-}
-function DiskVariablesBackup {
-$Script:DriveLetter_backups=($BackupFolder).split(':')[0]
-$Script:DriveSpaceArray=(Get-PSDrive $DriveLetter_backups).Free
-$Script:DriveBackupLeftSpace=[math]::round($DriveSpaceArray[0]/1Mb, 3)
-}
-function DiskVariablesRestore {
-$Script:DriveLetter_restore=($RestoreDirectory).split(':')[0]
-$Script:DriveSpaceArray=(Get-PSDrive $DriveLetter_restore).Free
-$Script:DriveRestoreLeftSpace=[math]::round($DriveSpaceArray[0] /1Mb, 3)
-}
-if ($PSVersionTable.PSVersion.Major -eq 5){
-	$Script:Encoding='UTF8'
-}
-else {
-	$Script:Encoding='UTF8BOM'
-}
-VariablesAdvancedMenu
-VariablesDoNotTouch
-####################################Variables.END######################################################
-#Params########################################################################################
-function check_all_params{
-	([string]::IsNullOrEmpty($BackupFolder) -or [string]::IsNullOrEmpty($BackupName) -or [string]::IsNullOrEmpty($WhatToBackup) -or $NumberOfBackups -lt 1 -or $BackupDayFilter -lt 1)
-}
-#ParamsEnd#####################################################################################
-#BackupMenu#####################################################################################
-function check_directories{
-    if ( Test-Path -Path $BackupFolder ){
-	}
-	else{
-		New-Item -ItemType Directory $BackupFolder
-	}
+
+Process {
+	$Profiles_from_Pipeline += $ProfileName
 }
 
-function ShellCopy {
-	if ( $WhatToBackup[-1] -eq '\' ){
-		$SourceDirectory=$WhatToBackup.TrimEnd('\')
-		$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
-		$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
-		if ( Test-Path -Path $BackupFolderModified ){}
-		else{
-			New-Item -ItemType Directory $BackupFolderModified
-		}
-		Robocopy "$SourceDirectory" "$BackupFolderModified" /E /z
-	}
-	else{
-		$WhatToBackupPath = Split-Path $WhatToBackup -Parent
-		$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
-		Robocopy "$WhatToBackupPath" "$BackupFolder" "$WhatToBackupChild" /mt /z
-	}
-}
-
-function ShellCopy_SecondBackupFolder {
-	if ( $WhatToBackup[-1] -eq '\' ){
-		$SourceDirectory=$WhatToBackup.TrimEnd('\')
-		$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
-		$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
-		if ( Test-Path -Path $BackupFolderModified ){}
-		else{
-			New-Item -ItemType Directory $BackupFolderModified
-		}
-		Robocopy "$SourceDirectory" "$BackupFolderModified" /E /z
-		if ( Test-Path -Path $SecondBackupFolder ){
-			$SecondBackupFolderModified = Join-Path -Path $SecondBackupFolder -ChildPath $WhatToBackupChild
-			if ( Test-Path -Path $SecondBackupFolderModified ){}
-			else{
-				New-Item -ItemType Directory $SecondBackupFolderModified
-			}
-			Write-Output '####################################################'
-			Write-Output '####################################################'
-			Robocopy "$SourceDirectory" "$SecondBackupFolderModified" /E /z
-		}
-	}
-	else{
-		$WhatToBackupPath = Split-Path $WhatToBackup -Parent
-		$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
-		Robocopy "$WhatToBackupPath" "$BackupFolder" "$WhatToBackupChild" /mt /z
-		if ( Test-Path -Path $SecondBackupFolder ){
-			Write-Output '####################################################'
-			Write-Output '####################################################'
-			Robocopy "$WhatToBackupPath" "$SecondBackupFolder" "$WhatToBackupChild" /mt /z
-		}
-	}
-}
-
-function SyncCopy {
-	$SourceDirectory=$WhatToBackup.TrimEnd('\')
-	$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
-	$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
-	if ( Test-Path -Path $BackupFolderModified ){}
-	else{
-		New-Item -ItemType Directory $BackupFolderModified
-	}
-	Robocopy "$SourceDirectory" "$BackupFolderModified" /MIR /z
-}
-
-function SyncCopy_SecondBackupFolder {
-	$SourceDirectory=$WhatToBackup.TrimEnd('\')
-	$WhatToBackupChild = Split-Path $WhatToBackup -Leaf
-	$BackupFolderModified = Join-Path -Path $BackupFolder -ChildPath $WhatToBackupChild
-	if ( Test-Path -Path $BackupFolderModified ){}
-	else{
-		New-Item -ItemType Directory $BackupFolderModified
-	}
-	Robocopy "$SourceDirectory" "$BackupFolderModified" /MIR /z
-	if ( Test-Path -Path $SecondBackupFolder ){
-		$SecondBackupFolderModified = Join-Path -Path $SecondBackupFolder -ChildPath $WhatToBackupChild
-		if ( Test-Path -Path $SecondBackupFolderModified ){}
-		else{
-			New-Item -ItemType Directory $SecondBackupFolderModified
-		}
-		Write-Output '####################################################'
-		Write-Output '####################################################'
-		Robocopy "$SourceDirectory" "$SecondBackupFolderModified" /MIR /z
-	}
-}
-
-function 7z_save {
-	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
-	& "$7z_directory\7z.exe" a "$BackupFolder\$BackupName`_$Time.7z" "$WhatToBackup`*" -bsp1
-	if ( !$? ){
-		Write-Output "####################################################`nSomesing go wrong. When archiving $WhatToBackup to $BackupFolder\$BackupName`_$Time.7z"
-	}
-	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-}
-
-function 7z_save_SecondBackupFolder {
-	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
-	& "$7z_directory\7z.exe" a "$BackupFolder\$BackupName`_$Time.7z" "$WhatToBackup`*" -bsp1
-	if ( !$? ){
-		Write-Output "####################################################`nSomesing go wrong. When archiving $WhatToBackup to $BackupFolder\$BackupName`_$Time.7z"
-	}
-	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-	if ( Test-Path -Path $SecondBackupFolder ){
-		Robocopy "$BackupFolder" "$SecondBackupFolder" "$BackupName`_$Time.7z" /mt /z
-		if ( $lastexitcode -ne 1 ){
-			Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
-		}
-		Get-ChildItem $SecondBackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-	}
-}
-
-function Backup_According_to_day_filter {
-	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
-	foreach ($file in (Get-ChildItem $WhatToBackup| Where-Object -FilterScript {$_.LastWriteTime -gt (Get-date).adddays(-$BackupDayFilter)})){
-		$fullname=$file.FullName
-		& "$7z_directory\7z.exe" a "$BackupFolder\$BackupName`_$Time.7z" "$fullname" -bsp1
-		if ( !$? ){
-			Write-Output "####################################################`nSomesing go wrong. When archiving $fullname to $BackupFolder\$BackupName`_$Time.7z"
-		}
-	}
-	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-}
-
-function Backup_According_to_day_filter_SecondBackupFolder {
-	$Script:Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
-	foreach ($file in (Get-ChildItem $WhatToBackup| Where-Object -FilterScript {$_.LastWriteTime -gt (Get-date).adddays(-$BackupDayFilter)})){
-		$fullname=$file.FullName
-		& "$7z_directory\7z.exe" a "$BackupFolder\$BackupName`_$Time.7z" "$fullname" -bsp1
-		if ( !$? ){
-			Write-Output "####################################################`nSomesing go wrong. When archiving $fullname to $BackupFolder\$BackupName`_$Time.7z"
-		}
-	}
-	Get-ChildItem $BackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-	if ( Test-Path -Path $SecondBackupFolder ){
-		if ( Test-Path -Path $BackupFolder\$BackupName`_$Time.7z ){
-			Robocopy "$BackupFolder" "$SecondBackupFolder" "$BackupName`_$Time.7z" /mt /z
-			if ( $lastexitcode -ne 1 ){
-				Write-Output "####################################################`nSomesing go wrong. When copying $BackupFolder\$BackupName`_$Time.7z to $SecondBackupFolder"
-			}
-		}
-	}
-	Get-ChildItem $SecondBackupFolder -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-}
-#BackupMenu#####################################################################################
-#RestoreMenu####################################################################################
-function 7z_BackupBeforeRestore{
-	$Time=(Get-Date -format "dd/MM/yyyy/HH/mm/ss")
-	& "$7z_directory\7z.exe" a "$BackupFolder\Backups_before_restore\$BackupName`_$Time.7z" "$RestoreDirectory`*" -bsp1
-	if ( !$? ){
-		$Script:7z_BackupBeforeRestoreExecution='False'
-		Write-Output "Somesing go wrong. When archiving $RestoreDirectory to $BackupFolder\Backups_before_restore\$BackupName`_$Time.7z"
-	}
-	else
-	{
-		$Script:7z_BackupBeforeRestoreExecution='True'
-		Get-ChildItem $BackupFolder\Backups_before_restore\ -Filter *.7z|Where-Object -FilterScript {$_.Name -match "^$BackupName_*"}| Sort-Object -Property CreationTime | Select-Object -SkipLast $NumberOfBackups | Remove-Item
-	}
+End {
+	if ($AutomationType -and -not $ProfileName) {
+		Write-Output "Parameter 'ProfileName' is not specified."
 	
-}
+		exit
+	}
 
-function 7z_restore{
-	if ( Test-Path -Path "$RestoreDirectory" ){
-		Remove-Item "$RestoreDirectory`*" -Recurse
+	if ($ProfileName -and -not $AutomationType) {
+		Write-Output "Parameter 'AutomationType' is not specified."
+	
+		exit
 	}
-	& "$7z_directory\7z.exe" x $RestoreMenuListSelectedItem -o"$RestoreDirectory" -bsp1
-	if ( !$? ){
-			Write-Output "Somesing go wrong. When restoring $RestoreMenuListSelectedItem to $RestoreDirectory"
+
+	Add-Type -AssemblyName System.Windows.Forms
+	Add-Type -AssemblyName System.Drawing
+	#PARAMS########################################################################################END
+	#IMPORTANT_VARIABLES###########################################################################
+	$ScriptVersion = [System.Version]::Parse("2.0.0")
+	$Path_to_Script = $MyInvocation.MyCommand.Path
+	$Running_Folder = Split-Path -Parent $Path_to_Script
+	$ScriptPath = $MyInvocation.MyCommand.Path
+	#IMPORTANT_VARIABLES###########################################################################END
+	#FUNCTION_SCRIPT_BODY##########################################################################
+	function settings {
+		param (
+			[String]$ProfileName,
+			[String]$BackupDirectory,
+			[String]$Executable_7z,
+			[String]$SecondBackupDirectory,
+			[String]$BackupName,
+			[String]$Source,
+			[String]$RestoreDirectory,
+			[decimal]$RestorePoints,
+			[decimal]$BackupDayFilter,
+			[boolean]$BackupCheckboxStatus,
+			[boolean]$RestoreCheckboxStatus,
+			[boolean]$CopyCheckboxStatus
+		)
+
+		$Settings = [PSCustomObject]@{
+			ProfileName           = ([String]"$ProfileName");
+			BackupDirectory       = ([string]"$BackupDirectory");
+			Executable_7z         = ([string]"$Executable_7z");
+			SecondBackupDirectory = ([string]"$SecondBackupDirectory");
+			BackupName            = ([string]"$BackupName");
+			Source                = ([string]"$Source");
+			RestoreDirectory      = ([string]"$RestoreDirectory");
+			RestorePoints         = ([decimal]$RestorePoints);
+			BackupDayFilter       = ([decimal]$BackupDayFilter);
+			BackupCheckboxStatus  = ([boolean]$BackupCheckboxStatus);
+			RestoreCheckboxStatus = ([boolean]$RestoreCheckboxStatus);
+			CopyCheckboxStatus    = ([boolean]$CopyCheckboxStatus);
+		}
+	
+		return $Settings
 	}
-}
-#RestoreMenu####################################################################################
-#MainMenu#######################################################################################
-function CheckUpdate {
-	ping github.com -n 1
-	if ($LASTEXITCODE -eq 0) {
-		$Script:GitScriptBody = (Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1).content -split "`r`n"
-		$GitScriptVersion = '#9'
-		$ScriptVersionScript=$ScriptVersion
-		ForEach ( $line in $GitScriptBody ) {
-			if ($line -match ".*$GitScriptVersion") {
-				Invoke-Expression $line
-				if ( $ScriptVersionScript -ge $ScriptVersion ) {
-					$UpdateButton.Text = 'Nothing to update'
-					$UpdateButton.Enabled = $false
+
+	function ProfileImporter {
+		if (Test-Path "${Running_Folder}\ProfileList.xml") {
+			$ImportedProfileXML = Import-Clixml -Path "${Running_Folder}\ProfileList.xml"
+			$ProfileXML = [System.Collections.ArrayList]::new()
+		
+			foreach ($profile in $ImportedProfileXML) {
+				$SettingParameters = @{
+					ProfileName           = "$($profile.ProfileName)"
+					BackupDirectory       = "$($profile.BackupDirectory)"
+					Executable_7z         = "$($profile.Executable_7z)"
+					SecondBackupDirectory = "$($profile.SecondBackupDirectory)"
+					BackupName            = "$($profile.BackupName)"
+					Source                = "$($profile.Source)"
+					RestoreDirectory      = "$($profile.RestoreDirectory)"
+					RestorePoints         = $($profile.RestorePoints)
+					BackupDayFilter       = $($profile.BackupDayFilter)
+					BackupCheckboxStatus  = $($profile.BackupCheckboxStatus)
+					RestoreCheckboxStatus = $($profile.RestoreCheckboxStatus)
+					CopyCheckboxStatus    = $($profile.CopyCheckboxStatus)
+				}
+				[void]$ProfileXML.Add($(settings @SettingParameters))
+			}
+		}
+
+		return ,$ProfileXML
+	}
+
+	function Profile7zExecCheck {
+		param (
+			$ProfileXmlObject
+		)
+
+		$Profiles7z = $ProfileXmlObject | Where-Object { -not ([string]::IsNullOrWhiteSpace($_.Executable_7z)) }
+	
+		foreach ($profile in $Profiles7z) {
+			if (-not (Test-Path $profile.Executable_7z) -or -not $profile.Executable_7z.Contains('7z.exe')) {
+				$FailedExecutablePath += , $profile.ProfileName
+			}
+		}
+	
+		return $FailedExecutablePath
+	}
+
+	function FormsVariables {
+		$FormsVariables = @{
+			FormsText          = "PowerShell 7z Backup and Restore v${ScriptVersion}"
+			FormsFont          = New-Object System.Drawing.Font("Times New Roman", 18, [System.Drawing.FontStyle]::Bold)
+			FormsBackColor     = 'Black'
+			FormsForeColor     = 'White'
+			FormsBorderStyle   = 'FixedDialog'
+			FormsStartPosition = 'CenterScreen'
+			FormsTextAlign     = 'MiddleCenter'
+		}
+	
+		return $FormsVariables
+	}
+
+	function ListFiller {
+		param (
+			$ProfileXmlObject,
+			$Menu,
+			$RestoreMenuListObjects
+		)
+
+		switch ($Menu) {
+			'ProfileMenu' {
+				if ($ProfileXmlObject.count -eq 0) {
+					return
+				}
+				if ($ProfileXmlObject.Count -eq 1) {
+					[void]$ProfileMenu_ProfileList_LISTBOX.Items.Clear()
+					[void]$ProfileMenu_ProfileList_LISTBOX.Items.Add("$($ProfileXmlObject.ProfileName)")
 				}
 				else {
-					$UpdateButton.Text = 'Do you want to update the script?'
-					[String]$Script:ScriptUpdate = '1'
+					[void]$ProfileMenu_ProfileList_LISTBOX.Items.Clear()
+					[void]$ProfileMenu_ProfileList_LISTBOX.Items.AddRange(@(
+							$ProfileXmlObject.ProfileName
+						))
 				}
-				break
+			}
+			'BackupMenu' {
+				if ($ProfileXmlObject.count -eq 0) {
+					return
+				}
+				if ($ProfileXmlObject.Count -eq 1) {
+					[void]$BackupMenu_ProfileList_LISTBOX.Items.Clear()
+					[void]$BackupMenu_ProfileList_LISTBOX.Items.Add("$($ProfileXmlObject.ProfileName)")
+				}
+				else {
+					[void]$BackupMenu_ProfileList_LISTBOX.Items.Clear()
+					[void]$BackupMenu_ProfileList_LISTBOX.Items.AddRange(@(
+							$ProfileXmlObject.ProfileName
+						))
+				}
+			}
+			'RestoreMenu' {
+				if ($ProfileXmlObject.count -eq 0) {
+					return
+				}
+				if ($ProfileXmlObject.Count -eq 1) {
+					[void]$RestoreMenu_ProfileList_LISTBOX.Items.Add("$($ProfileXmlObject.ProfileName)")
+				}
+				else {
+					[void]$RestoreMenu_ProfileList_LISTBOX.Items.AddRange(@(
+							$ProfileXmlObject.ProfileName
+						))
+				}
+			}
+			'RestoreMenuList' {
+				if ($RestoreMenuListObjects.count -eq 0) {
+					return
+				}
+				if ($RestoreMenuListObjects.Count -eq 1) {
+					[void]$RestoreMenuList_List_LISTBOX.Items.Add("$RestoreMenuListObjects")
+				}
+				else {
+					[void]$RestoreMenuList_List_LISTBOX.Items.AddRange($RestoreMenuListObjects)
+				}
 			}
 		}
 	}
-	else {
-		$UpdateButton.Text = 'Cannot connect to GITHUB'
-	}
-}
 
-function UpdateScript {
-	ping github.com -n 1
-	if ($LASTEXITCODE -eq 0) {
-		$BackupConfigFile = Get-Content -Encoding $Encoding $Path_to_Script
-		[decimal]$skip = 0
-		ForEach ( $line in $BackupConfigFile ) {
-			if ($line -match '.*#1') {
-				$skipstart = $skip
-				$BackupConfig = $BackupConfigFile | Select-Object -Skip $skipstart -First 8
-				$skip = 0
-				break
-			}
-			$skip++
-		}
-		Write-Output $GitScriptBody > $Path_to_Script
-		VariablesDoNotTouch
-		$UpdatedScriptFile = Get-Content -Encoding $Encoding $Path_to_Script
-		ForEach ( $line in $UpdatedScriptFile ) {
-			if ($line -match '.*#1') {
-				$skipstart = $skip
-				$UpdatedConfig = $UpdatedScriptFile | Select-Object -Skip $skipstart -First 8
-				break
-			}
-			$skip++
-		}
-		for ($a = 0;$a -le 7;$a++){
-			$BackupConfigString = $BackupConfig[$a]
-			$UpdatedConfigString = $UpdatedConfig[$a]
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$UpdatedConfigString","$BackupConfigString") | Set-Content -Encoding $Encoding $Path_to_Script
-		}
-		$Script:ErrorLabelText = 'Script Updated, exiting... Please restart the Script'
-		ErrorForm
-		$MainMenuForm.Close()
-	}
-	else {
-		$UpdateButton.Text = 'Cannot connect to GITHUB'
-	}
-}
-#MainMenu#######################################################################################
-function LogForm {
-	$LogForm = New-Object System.Windows.Forms.Form
-	$LogForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$LogForm.ClientSize = New-Object System.Drawing.Size(566, 371)
-	$LogForm.Font = New-Object System.Drawing.Font("Times New Roman",12,[System.Drawing.FontStyle]::Bold)
-	$LogForm.BackColor = 'Black'
-	$LogForm.ForeColor = 'White'
-	$LogForm.StartPosition = 'CenterScreen'
-	$LogForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$LogExitButton = New-Object System.Windows.Forms.Button
-	$LogExitButton.Location = New-Object System.Drawing.Point(208, 323)
-	$LogExitButton.Size = New-Object System.Drawing.Size(157, 40)
-	$LogExitButton.Text = "Ok"
-	$LogExitButton.TextAlign = 'MiddleCenter'
-	$LogExitButton.UseVisualStyleBackColor = $true
-	$LogExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-	#######################################################################################################
-	$LogLabel = New-Object System.Windows.Forms.Label
-	$LogLabel.Location = New-Object System.Drawing.Point(146, 9)
-	$LogLabel.AutoSize = $true
-	$LogLabel.Size = New-Object System.Drawing.Size(163, 32)
-	$LogLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",22,[System.Drawing.FontStyle]::Regular)
-	$LogLabel.TextAlign = 'MiddleCenter'
-	$LogLabel.Text = "Operational Log"
-	#######################################################################################################
-	$LogTextBox = New-Object System.Windows.Forms.TextBox
-	$LogTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$LogTextBox.Location = New-Object System.Drawing.Point(12, 44)
-	$LogTextBox.Multiline = $true
-	$LogTextBox.ReadOnly = $true
-	$LogTextBox.Size = New-Object System.Drawing.Size(542, 273)
-	$LogTextBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
-	$LogTextBox.Text = ''
-	#######################################################################################################
-	$LogForm.AcceptButton = $LogExitButton
-	$LogForm.Controls.Add($LogExitButton)
-	$LogForm.Controls.Add($LogTextBox)
-	$LogForm.Controls.Add($LogLabel)
-	#######################################################################################################
-	function LogFormJobBackup1{
-		$LogTextBox.Text = ''
-		$LogTextBox.Text = check_directories|Out-String
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			7z_save|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-		else{
-			7z_save_SecondBackupFolder|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-	}
-	function LogFormJobBackup2{
-		$LogTextBox.Text = ''
-		$LogTextBox.AppendText($(check_directories|Out-String))
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			Backup_According_to_day_filter|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-		else{
-			Backup_According_to_day_filter_SecondBackupFolder|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-		if ([string]::IsNullOrEmpty($LogTextBox.Text)){
-			$LogTextBox.AppendText("There are nothing to backup")
-		}
-	}
-	function LogFormJobBackup3{
-		$LogTextBox.Text = ''
-		$LogTextBox.AppendText($(check_directories|Out-String))
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			ShellCopy|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-		else{
-			ShellCopy_SecondBackupFolder|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-	}
-	function LogFormJobBackup4{
-		$LogTextBox.Text = ''
-		$LogTextBox.AppendText($(check_directories|Out-String))
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			SyncCopy|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-		else{
-			SyncCopy_SecondBackupFolder|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-		}
-	}
-	function LogFormJobRestore1{
-		$LogTextBox.Text = ''
-		if ( Test-Path -Path $BackupFolder\Backups_before_restore ){}
-		else{
-			$LogTextBox.AppendText("$(New-Item -ItemType Directory $BackupFolder\Backups_before_restore|Out-String)")
-			$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
-		}
-		7z_BackupBeforeRestore|Out-String -Stream|ForEach-Object {
-			if (-not [string]::IsNullOrEmpty($_)){
-				$LogTextBox.AppendText($_.Trim() + "`r`n")
-			}
-		}
-		$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
-		if ($7z_BackupBeforeRestoreExecution -eq 'True'){
-			7z_restore|Out-String -Stream|ForEach-Object {
-				if (-not [string]::IsNullOrEmpty($_)){
-					$LogTextBox.AppendText($_.Trim() + "`r`n")
-				}
-			}
-			$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
-		}
-	}
-	function LogFormJobRestore2{
-		$LogTextBox.Text = ''
-		7z_restore|Out-String -Stream|ForEach-Object {
-			if (-not [string]::IsNullOrEmpty($_)){
-				$LogTextBox.AppendText($_.Trim() + "`r`n")
-			}
-		}
-		$LogTextBox.AppendText($(Write-Output "#####################################"|Out-String))
-	}
-	#######################################################################################################
-	$LogForm.add_Shown({
-		& $LogFormJob
-	})
-	$Script:LogResult = $LogForm.ShowDialog()
-}
+	function CMDAutomationTypeChecker {
+		param (
+			[string]$AutomationType,
+			[string]$Automation_ProfileName,
+			$ProfileObject,
+			$ProfileXmlObject
+		)
 
-function ErrorForm {
-	$ErrorForm = New-Object System.Windows.Forms.Form
-	$ErrorForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$ErrorForm.Size = New-Object System.Drawing.Size(516,179)
-	$ErrorForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
-	$ErrorForm.BackColor = 'Black'
-	$ErrorForm.ForeColor = 'White'
-	$ErrorForm.StartPosition = 'CenterScreen'
-	$ErrorForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$ErrorExitButton = New-Object System.Windows.Forms.Button
-	$ErrorExitButton.Location = New-Object System.Drawing.Point(190,95)
-	$ErrorExitButton.Size = New-Object System.Drawing.Size(100,35)
-	$ErrorExitButton.Text = 'Exit'
-	$ErrorExitButton.TextAlign = 'MiddleCenter'
-	$ErrorExitButton.Add_Click({
-		$ErrorForm.Close()
-	})
-	#######################################################################################################
-	$ErrorLabel = New-Object System.Windows.Forms.Label
-	$ErrorLabel.Location = New-Object System.Drawing.Point(10,5)
-	$ErrorLabel.Size = New-Object System.Drawing.Size(480,80)
-	$ErrorLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$ErrorLabel.TextAlign = 'MiddleCenter'
-	$ErrorLabel.Text = "$ErrorLabelText"
-	#######################################################################################################
-	$ErrorForm.Controls.Add($ErrorExitButton)
-	$ErrorForm.AcceptButton = $ErrorExitButton
-	$ErrorForm.Controls.Add($ErrorLabel)
-	#######################################################################################################
-	$Script:ErrorResult = $ErrorForm.ShowDialog()
-}
-
-function No7zip {
-	#######################################################################################################
-	$No7zipForm = New-Object System.Windows.Forms.Form
-	$No7zipForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$No7zipForm.Size = New-Object System.Drawing.Size(536,219)
-	$No7zipForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
-	$No7zipForm.BackColor = 'Black'
-	$No7zipForm.ForeColor = 'White'
-	$No7zipForm.StartPosition = 'CenterScreen'
-	$No7zipForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$No7zipExitButton = New-Object System.Windows.Forms.Button
-	$No7zipExitButton.Location = New-Object System.Drawing.Point(410,135)
-	$No7zipExitButton.Size = New-Object System.Drawing.Size(100,35)
-	$No7zipExitButton.Text = 'Exit'
-	$No7zipExitButton.TextAlign = 'MiddleCenter'
-	$No7zipExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Ok
-	#######################################################################################################
-	$No7zipOkButton = New-Object System.Windows.Forms.Button
-	$No7zipOkButton.Location = New-Object System.Drawing.Point(10,135)
-	$No7zipOkButton.Size = New-Object System.Drawing.Size(100,35)
-	$No7zipOkButton.Text = 'Ok'
-	$No7zipOkButton.TextAlign = 'MiddleCenter'
-	$No7zipOkButton.Add_Click({
-		if ( Test-Path -Path "$7z_directory\7z.exe" ){
-			$Script:run='False'
-			VariablesDoNotTouch
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe2","`[String]$Script:7z_directory`=`"$7z_directory\`" `#2") | Set-Content -Encoding $Encoding $Path_to_Script
-			$No7zipForm.Close()
+		if (-not $ProfileObject) {
+			Write-Output "There is no profile named $Automation_ProfileName in the profile list, please enter the correct profile name."
+			Write-Output "Here are the names of the profiles that exist in your profile list"
+			Write-Output "#####"
+			$ProfileXmlObject.ProfileName
+			Write-Output "#####"
+			Throw "$Automation_ProfileName - exited"
 		}
-		else{
-			$Script:ErrorLabelText = "Wrong directory.`nThere are no 7z.exe in directory`n$7z_directory"
-			ErrorForm
+		switch ($AutomationType) {
+			'SimpleBackup' {
+				if ($ProfileObject.BackupCheckboxStatus -eq $false) {
+					Write-Output "Profile - $Automation_ProfileName, does not support `'AutomationType`' - $AutomationType`nTo enable this type of task, switch to graphical mode and enable this feature in the script profile menu"
+					Throw "$Automation_ProfileName - exited"
+				}
+			}
+			'TimeFilteredBackup' {
+				if ($ProfileObject.BackupCheckboxStatus -eq $false) {
+					Write-Output "Profile - $Automation_ProfileName, does not support `'AutomationType`' - $AutomationType`nTo enable this type of task, switch to graphical mode and enable this feature in the script profile menu"
+					Throw "$Automation_ProfileName - exited"
+				}
+			}
+			'Copy' {
+				if ($ProfileObject.CopyCheckboxStatus -eq $false) {
+					Write-Output "Profile - $Automation_ProfileName, does not support `'AutomationType`' - $AutomationType`nTo enable this type of task, switch to graphical mode and enable this feature in the script profile menu"
+					Throw "$Automation_ProfileName - exited"
+				}
+			}
+			'Sync' {
+				if ($ProfileObject.CopyCheckboxStatus -eq $false) {
+					Write-Output "Profile - $Automation_ProfileName, does not support `'AutomationType`' - $AutomationType`nTo enable this type of task, switch to graphical mode and enable this feature in the script profile menu"
+					Throw "$Automation_ProfileName - exited"
+				}
+				elseif (($ProfileObject.CopyCheckboxStatus -eq $true) -and ($ProfileObject.Source[-1] -ne '\')) {
+					Write-Output "Profile - $Automation_ProfileName, does not support `'AutomationType`' - $AutomationType`nThe synchronization task is available only for directories."
+					Throw "$Automation_ProfileName - exited"
+				}
+			}
 		}
-	})
-	#######################################################################################################
-	$No7zipFolderButton = New-Object System.Windows.Forms.Button
-	$No7zipFolderButton.Location = New-Object System.Drawing.Point(470,95)
-	$No7zipFolderButton.Size = New-Object System.Drawing.Size(40,27)
-	$No7zipFolderButton.Text = '...'
-	$No7zipFolderButton.TextAlign = 'MiddleCenter'
-	$No7zipFolderButton.Add_Click({
-		$No7zipFoldername = New-Object System.Windows.Forms.FolderBrowserDialog
-		$No7zipFoldername.RootFolder = "MyComputer"
-		$No7zipFoldername.SelectedPath = "C:\Program Files\"
-		if($No7zipFoldername.ShowDialog() -eq "OK"){
-			$Script:7z_directory = $No7zipFoldername.SelectedPath
-		}
-		(Get-Variable -Name No7zipTextBox -Scope 1).Value.Text = $7z_directory
-	})
-	#######################################################################################################
-	$No7zipLabel = New-Object System.Windows.Forms.Label
-	$No7zipLabel.Location = New-Object System.Drawing.Point(10,5)
-	$No7zipLabel.Size = New-Object System.Drawing.Size(500,80)
-	$No7zipLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$No7zipLabel.TextAlign = 'MiddleCenter'
-	$No7zipLabel.Text = "Please install 7-zip from the official website`nhttps://www.7-zip.org/download.html`nOr change the 7-zip folder below, to the path where the executable for 7-Zip is located"
-	#######################################################################################################
-	$No7zipTextBox = New-Object System.Windows.Forms.TextBox
-	$No7zipTextBox.Location = New-Object System.Drawing.Point(10,95)
-	$No7zipTextBox.Size = New-Object System.Drawing.Size(450,20)
-	$No7zipTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$No7zipTextBox.TextAlign = 'Center'
-	$No7zipTextBox.Text = "$7z_directory"
-	$No7zipTextBox.ReadOnly = 'True'
-	#######################################################################################################
-	$No7zipForm.AcceptButton = $No7zipExitButton
-	$No7zipForm.Controls.Add($No7zipExitButton)
-	$No7zipForm.AcceptButton = $No7zipFolderButton
-	$No7zipForm.Controls.Add($No7zipFolderButton)
-	$No7zipForm.AcceptButton = $No7zipOkButton
-	$No7zipForm.Controls.Add($No7zipOkButton)
-	$No7zipForm.Controls.Add($No7zipLabel)
-	$No7zipForm.Controls.Add($No7zipTextBox)
-	######################################################################################################
-	$Script:No7zipResult = $No7zipForm.ShowDialog()
-}
-
-function BackupMenu {
-	DiskVariablesBackup
-	#######################################################################################################
-	$BackupMenuForm = New-Object System.Windows.Forms.Form
-	$BackupMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$BackupMenuForm.ClientSize = New-Object System.Drawing.Size(820,705)
-	$BackupMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
-	$BackupMenuForm.BackColor = 'Black'
-	$BackupMenuForm.ForeColor = 'White'
-	$BackupMenuForm.StartPosition = 'CenterScreen'
-	$BackupMenuForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################		
-	$BackupMenuLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuLabel.Location = New-Object System.Drawing.Point(10,5)
-	$BackupMenuLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuLabel.Text = "Please select one of the options below."
-	#######################################################################################################
-	$BackupMenuClassicBackupButton = New-Object System.Windows.Forms.Button
-	$BackupMenuClassicBackupButton.Location = New-Object System.Drawing.Point(10,30)
-	$BackupMenuClassicBackupButton.Size = New-Object System.Drawing.Size(200,60)
-	$BackupMenuClassicBackupButton.Text = 'Simple Backup Job'
-	$BackupMenuClassicBackupButton.TextAlign = 'MiddleCenter'
-	$BackupMenuClassicBackupButton.Add_Click({
-		$Script:LogFormJob = {LogFormJobBackup1}
-		LogForm
-		DiskVariablesBackup
-		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
-	})
-	######################################################################################################
-	$BackupMenuClassicBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuClassicBackupLabel.Location = New-Object System.Drawing.Point(220,30)
-	$BackupMenuClassicBackupLabel.Size = New-Object System.Drawing.Size(590,60)
-	$BackupMenuClassicBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuClassicBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuClassicBackupLabel.Text = "Click this button if you want to make a regular backup copy of the directory(file) specified below"
-	$BackupMenuClassicBackupLabel.BorderStyle = "FixedSingle"
-	#######################################################################################################
-	$BackupMenuTimeFiltredBackupButton = New-Object System.Windows.Forms.Button
-	$BackupMenuTimeFiltredBackupButton.Location = New-Object System.Drawing.Point(10,100)
-	$BackupMenuTimeFiltredBackupButton.Size = New-Object System.Drawing.Size(200,60)
-	$BackupMenuTimeFiltredBackupButton.Text = 'Time Filtred Backup Job'
-	$BackupMenuTimeFiltredBackupButton.TextAlign = 'MiddleCenter'
-	$BackupMenuTimeFiltredBackupButton.Add_Click({
-		$Script:LogFormJob = {LogFormJobBackup2}
-		LogForm
-		DiskVariablesBackup
-		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
-	})
-	######################################################################################################
-	$BackupMenuTimeFiltredBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuTimeFiltredBackupLabel.Location = New-Object System.Drawing.Point(220,100)
-	$BackupMenuTimeFiltredBackupLabel.Size = New-Object System.Drawing.Size(590,60)
-	$BackupMenuTimeFiltredBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuTimeFiltredBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuTimeFiltredBackupLabel.Text = "If you want to archive only files older than $BackupDayFilter days in the folder specified below, click this button."
-	$BackupMenuTimeFiltredBackupLabel.BorderStyle = "FixedSingle"
-	#######################################################################################################
-	$BackupMenuSimpleCopyButton = New-Object System.Windows.Forms.Button
-	$BackupMenuSimpleCopyButton.Location = New-Object System.Drawing.Point(10,170)
-	$BackupMenuSimpleCopyButton.Size = New-Object System.Drawing.Size(200,60)
-	$BackupMenuSimpleCopyButton.Text = 'Copy File Job'
-	$BackupMenuSimpleCopyButton.TextAlign = 'MiddleCenter'
-	$BackupMenuSimpleCopyButton.Add_Click({
-		$Script:LogFormJob = {LogFormJobBackup3}
-		LogForm
-		DiskVariablesBackup
-		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
-	})
-	######################################################################################################
-	$BackupMenuSimpleCopyLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSimpleCopyLabel.Location = New-Object System.Drawing.Point(220,170)
-	$BackupMenuSimpleCopyLabel.Size = New-Object System.Drawing.Size(590,60)
-	$BackupMenuSimpleCopyLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSimpleCopyLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuSimpleCopyLabel.Text = "If you just need to copy (update) a file or directory in the location of your archive copies, this option is for you."
-	$BackupMenuSimpleCopyLabel.BorderStyle = "FixedSingle"
-	#######################################################################################################
-	$BackupMenuSyncButton = New-Object System.Windows.Forms.Button
-	$BackupMenuSyncButton.Location = New-Object System.Drawing.Point(10,240)
-	$BackupMenuSyncButton.Size = New-Object System.Drawing.Size(200,60)
-	$BackupMenuSyncButton.Text = 'Sync Job'
-	$BackupMenuSyncButton.TextAlign = 'MiddleCenter'
-	$BackupMenuSyncButton.Add_Click({
-		$Script:LogFormJob = {LogFormJobBackup4}
-		LogForm
-		DiskVariablesBackup
-		$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
-	})
-	######################################################################################################
-	$BackupMenuSyncLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSyncLabel.Location = New-Object System.Drawing.Point(220,240)
-	$BackupMenuSyncLabel.Size = New-Object System.Drawing.Size(590,60)
-	$BackupMenuSyncLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSyncLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuSyncLabel.Text = "If you want to synchronize one folder with another."
-	$BackupMenuSyncLabel.BorderStyle = "FixedSingle"
-	######################################################################################################
-	$BackupMenuFromBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuFromBackupLabel.Location = New-Object System.Drawing.Point(10,310)
-	$BackupMenuFromBackupLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuFromBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuFromBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuFromBackupLabel.Text = "Folder(File) to be archived:"
-	#######################################################################################################
-	$BackupMenuWhatToBackupTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuWhatToBackupTextBox.Location = New-Object System.Drawing.Point(10,335)
-	$BackupMenuWhatToBackupTextBox.Size = New-Object System.Drawing.Size(800,25)
-	$BackupMenuWhatToBackupTextBox.Text = "$WhatToBackup"
-	$BackupMenuWhatToBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuWhatToBackupTextBox.ReadOnly = $true
-	######################################################################################################
-	$BackupMenuToBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuToBackupLabel.Location = New-Object System.Drawing.Point(10,365)
-	$BackupMenuToBackupLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuToBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuToBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuToBackupLabel.Text = "Backup folder are located in:"
-	#######################################################################################################	
-	$BackupMenuBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,390)
-	$BackupMenuBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,25)
-	$BackupMenuBackupDirectoryTextBox.Text = "$BackupFolder"
-	$BackupMenuBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuBackupDirectoryTextBox.ReadOnly = $true
-	######################################################################################################
-	$BackupMenuSecondBackupLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSecondBackupLabel.Location = New-Object System.Drawing.Point(10,420)
-	$BackupMenuSecondBackupLabel.Size = New-Object System.Drawing.Size(800,20)
-	$BackupMenuSecondBackupLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSecondBackupLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuSecondBackupLabel.Text = "Second Backup folder are located in:"
-	#######################################################################################################	
-	$BackupMenuSecondBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuSecondBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,445)
-	$BackupMenuSecondBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,25)
-	$BackupMenuSecondBackupDirectoryTextBox.Text = "$(
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			Write-Output "Second Backup folder is not set"
-		}
-		else{
-			Write-Output "$SecondBackupFolder"
-		}
-	)"
-	$BackupMenuSecondBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSecondBackupDirectoryTextBox.ReadOnly = $true
-	######################################################################################################
-	$BackupMenuSpaceLeftOnDiskLabel = New-Object System.Windows.Forms.Label
-	$BackupMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(10,475)
-	$BackupMenuSpaceLeftOnDiskLabel.Size = New-Object System.Drawing.Size(800,60)
-	$BackupMenuSpaceLeftOnDiskLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSpaceLeftOnDiskLabel.TextAlign = 'MiddleCenter'
-	$BackupMenuSpaceLeftOnDiskLabel.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
-	#######################################################################################################
-	$BackupMenuClassicBackupTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuClassicBackupTextBox.Location = New-Object System.Drawing.Point(10,540)
-	$BackupMenuClassicBackupTextBox.Size = New-Object System.Drawing.Size(800,25)
-	$BackupMenuClassicBackupTextBox.Text = "$Shell_command"
-	$BackupMenuClassicBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuClassicBackupTextBox.ReadOnly = $true
-	#######################################################################################################
-	$BackupMenuTimeFiltredBackupTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuTimeFiltredBackupTextBox.Location = New-Object System.Drawing.Point(10,570)
-	$BackupMenuTimeFiltredBackupTextBox.Size = New-Object System.Drawing.Size(800,25)
-	$BackupMenuTimeFiltredBackupTextBox.Text = "$Shell_command2"
-	$BackupMenuTimeFiltredBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuTimeFiltredBackupTextBox.ReadOnly = $true
-	#######################################################################################################
-	$BackupMenuSimpleCopyTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuSimpleCopyTextBox.Location = New-Object System.Drawing.Point(10,600)
-	$BackupMenuSimpleCopyTextBox.Size = New-Object System.Drawing.Size(800,25)
-	$BackupMenuSimpleCopyTextBox.Text = "$Shell_command3"
-	$BackupMenuSimpleCopyTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSimpleCopyTextBox.ReadOnly = $true
-	#######################################################################################################
-	$BackupMenuSyncTextBox = New-Object System.Windows.Forms.TextBox
-	$BackupMenuSyncTextBox.Location = New-Object System.Drawing.Point(10,630)
-	$BackupMenuSyncTextBox.Size = New-Object System.Drawing.Size(800,25)
-	$BackupMenuSyncTextBox.Text = "$Shell_command4"
-	$BackupMenuSyncTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$BackupMenuSyncTextBox.ReadOnly = $true
-	#######################################################################################################
-	$BackupMenuExitButton = New-Object System.Windows.Forms.Button
-	$BackupMenuExitButton.Location = New-Object System.Drawing.Point(360,660)
-	$BackupMenuExitButton.Size = New-Object System.Drawing.Size(100,35)
-	$BackupMenuExitButton.Text = 'Exit'
-	$BackupMenuExitButton.TextAlign = 'MiddleCenter'
-	$BackupMenuExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-	######################################################################################################
-	$BackupMenuForm.AcceptButton = $BackupMenuExitButton
-	$BackupMenuForm.Controls.Add($BackupMenuExitButton)
-	$BackupMenuForm.AcceptButton = $BackupMenuClassicBackupButton
-	$BackupMenuForm.Controls.Add($BackupMenuClassicBackupButton)
-	$BackupMenuForm.AcceptButton = $BackupMenuTimeFiltredBackupButton
-	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupButton)
-	$BackupMenuForm.AcceptButton = $BackupMenuSimpleCopyButton
-	$BackupMenuForm.Controls.Add($BackupMenuSimpleCopyButton)
-	$BackupMenuForm.AcceptButton = $BackupMenuSyncButton
-	$BackupMenuForm.Controls.Add($BackupMenuSyncButton)
-	$BackupMenuForm.Controls.Add($BackupMenuLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuClassicBackupLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuSimpleCopyLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuSpaceLeftOnDiskLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuFromBackupLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuToBackupLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuSecondBackupLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuSyncLabel)
-	$BackupMenuForm.Controls.Add($BackupMenuClassicBackupTextBox)
-	$BackupMenuForm.Controls.Add($BackupMenuTimeFiltredBackupTextBox)
-	$BackupMenuForm.Controls.Add($BackupMenuSimpleCopyTextBox)
-	$BackupMenuForm.Controls.Add($BackupMenuWhatToBackupTextBox)
-	$BackupMenuForm.Controls.Add($BackupMenuBackupDirectoryTextBox)
-	$BackupMenuForm.Controls.Add($BackupMenuSecondBackupDirectoryTextBox)
-	$BackupMenuForm.Controls.Add($BackupMenuSyncTextBox)
-	######################################################################################################
-	$WhatToBackupType = $WhatToBackup[-1]
-	if ( $WhatToBackupType -eq '\' ){}
-	else{
-		$BackupMenuSyncButton.Enabled = $false
 	}
-	$Script:BackupMenuResult = $BackupMenuForm.ShowDialog()
-}
 
-function RestoreMenuList {
-	$RestoreMenuListForm = New-Object System.Windows.Forms.Form
-	$RestoreMenuListForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$RestoreMenuListForm.ClientSize = New-Object System.Drawing.Size(579, 245)
-	$RestoreMenuListForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
-	$RestoreMenuListForm.BackColor = 'Black'
-	$RestoreMenuListForm.ForeColor = 'White'
-	$RestoreMenuListForm.StartPosition = 'CenterScreen'
-	$RestoreMenuListForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$RestoreMenuListExitButton = New-Object System.Windows.Forms.Button
-	$RestoreMenuListExitButton.Location = New-Object System.Drawing.Point(458, 198)
-	$RestoreMenuListExitButton.Size = New-Object System.Drawing.Size(100,35)
-	$RestoreMenuListExitButton.Text = 'Exit'
-	$RestoreMenuListExitButton.TextAlign = 'MiddleCenter'
-	$RestoreMenuListExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-	#######################################################################################################
-	$RestoreMenuListOKButton = New-Object System.Windows.Forms.Button
-	$RestoreMenuListOKButton.Location = New-Object System.Drawing.Point(16, 198)
-	$RestoreMenuListOKButton.Size = New-Object System.Drawing.Size(100,35)
-	$RestoreMenuListOKButton.Text = 'OK'
-	$RestoreMenuListOKButton.TextAlign = 'MiddleCenter'
-	$RestoreMenuListOKButton.Add_Click({
-		$Script:RestoreMenuListSelectedItem=$RestoreMenuList.SelectedItem
-		if ($RestoreMenuCheckBox.Checked -and $RestoreAfterDisasterClick -eq 'False'){
-			$Script:LogFormJob = {LogFormJobRestore1}
-			LogForm
-			DiskVariablesRestore
-		}
-		else{
-			$Script:LogFormJob = {LogFormJobRestore2}
-			LogForm
-			DiskVariablesRestore
-		}
-	})
-	#######################################################################################################
-	$RestoreMenuListLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuListLabel.Location = New-Object System.Drawing.Point(12, 9)
-	$RestoreMenuListLabel.Size = New-Object System.Drawing.Size(555, 42)
-	$RestoreMenuListLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuListLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuListLabel.Text = "Select one backup from the list that you want to restore and click OK to start the recovery process"
-	######################################################################################################
-	$RestoreMenuList = New-Object System.Windows.Forms.ListBox
-	$RestoreMenuList.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$RestoreMenuList.FormattingEnabled = $true
-	$RestoreMenuList.Location = New-Object System.Drawing.Point(16, 55)
-	$RestoreMenuList.ScrollAlwaysVisible = $true
-	$RestoreMenuList.HorizontalScrollbar = $true
-	$RestoreMenuList.Size = New-Object System.Drawing.Size(549, 132)
-	$RestoreMenuList.Font = New-Object System.Drawing.Font("Cascadia Mono",10,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuListObjectsCount=($RestoreMenuListObjects|Measure-Object).Count
-	if ($RestoreMenuListObjectsCount -eq 1){
-		$RestoreMenuList.Items.Add("$RestoreMenuListObjects")
-	}
-	elseif ($RestoreMenuListObjectsCount -eq 0){}
-	else{
-		$RestoreMenuList.Items.AddRange(@(
-			$RestoreMenuListObjects
-		))
-	}
-	$RestoreMenuList.Add_Click({
-		if ($RestoreMenuList.SelectedItem){
-			$RestoreMenuListOKButton.Enabled = $true
-		}
-	})
-	######################################################################################################
-	$RestoreMenuListForm.AcceptButton = $RestoreMenuListExitButton
-	$RestoreMenuListForm.Controls.Add($RestoreMenuListExitButton)
-	$RestoreMenuListForm.AcceptButton = $RestoreMenuListOKButton
-	$RestoreMenuListForm.Controls.Add($RestoreMenuListOKButton)
-	$RestoreMenuListForm.Controls.Add($RestoreMenuListLabel)
-	$RestoreMenuListForm.Controls.Add($RestoreMenuList)
-	######################################################################################################
-	if ($RestoreMenuList.SelectedItem){}
-		else{
-			$RestoreMenuListOKButton.Enabled = $false
-		}
-	$Script:RestoreMenuListResult = $RestoreMenuListForm.ShowDialog()
-}
-
-function RestoreMenu {
-	DiskVariablesRestore
-	#######################################################################################################
-	$RestoreMenuForm = New-Object System.Windows.Forms.Form
-	$RestoreMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$RestoreMenuForm.ClientSize = New-Object System.Drawing.Size(810, 415)
-	$RestoreMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
-	$RestoreMenuForm.BackColor = 'Black'
-	$RestoreMenuForm.ForeColor = 'White'
-	$RestoreMenuForm.StartPosition = 'CenterScreen'
-	$RestoreMenuForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$RestoreMenuExitButton = New-Object System.Windows.Forms.Button
-	$RestoreMenuExitButton.Location = New-Object System.Drawing.Point(345, 370)
-	$RestoreMenuExitButton.Size = New-Object System.Drawing.Size(100,35)
-	$RestoreMenuExitButton.Text = 'Exit'
-	$RestoreMenuExitButton.TextAlign = 'MiddleCenter'
-	$RestoreMenuExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-	#######################################################################################################
-	$RestoreMenuClassicRestoreButton = New-Object System.Windows.Forms.Button
-	$RestoreMenuClassicRestoreButton.Location = New-Object System.Drawing.Point(12, 71)
-	$RestoreMenuClassicRestoreButton.Size = New-Object System.Drawing.Size(175, 65)
-	$RestoreMenuClassicRestoreButton.Text = 'Restore Backup Job'
-	$RestoreMenuClassicRestoreButton.TextAlign = 'MiddleCenter'
-	$RestoreMenuClassicRestoreButton.Add_Click({
-		$Script:RestoreMenuListObjects = @($((Get-ChildItem $BackupFolder -Filter *.7z).FullName))
-		$Script:RestoreAfterDisasterClick = 'False'
-		RestoreMenuList
-	})
-	#######################################################################################################
-	$RestoreMenuRestoreAfterDisasterButton = New-Object System.Windows.Forms.Button
-	$RestoreMenuRestoreAfterDisasterButton.Location = New-Object System.Drawing.Point(12, 143)
-	$RestoreMenuRestoreAfterDisasterButton.Size = New-Object System.Drawing.Size(175, 65)
-	$RestoreMenuRestoreAfterDisasterButton.Text = 'Restore After Disaster Job'
-	$RestoreMenuRestoreAfterDisasterButton.TextAlign = 'MiddleCenter'
-	$RestoreMenuRestoreAfterDisasterButton.Add_Click({
-		if ( Test-Path -Path $BackupFolder\Backups_before_restore ){}
-		else{
-			New-Item -ItemType Directory $BackupFolder\Backups_before_restore
-		}
-		$Script:RestoreMenuListObjects = @($((Get-ChildItem $BackupFolder\Backups_before_restore).FullName))
-		$Script:RestoreAfterDisasterClick = 'True'
-		RestoreMenuList
-	})
-	#######################################################################################################
-	$RestoreMenuCheckBox = New-Object System.Windows.Forms.CheckBox
-	$RestoreMenuCheckBox.Checked = $true
-	$RestoreMenuCheckBox.CheckState = [System.Windows.Forms.CheckState]::Checked
-	$RestoreMenuCheckBox.Location = New-Object System.Drawing.Point(129, 35)
-	$RestoreMenuCheckBox.Size = New-Object System.Drawing.Size(555, 33)
-	$RestoreMenuCheckBox.Text = "Make a backup before restoring an archive copy?"
-	$RestoreMenuCheckBox.Add_CheckStateChanged({
-		if ($RestoreMenuCheckBox.Checked){
-			$RestoreMenuRestoreAfterDisasterButton.Enabled = $true
-		}
-		else{
-			$RestoreMenuRestoreAfterDisasterButton.Enabled = $false
-		}
-	})
-	#######################################################################################################	
-	$RestoreMenuRestoreDirectoryTextBox = New-Object System.Windows.Forms.TextBox
-	$RestoreMenuRestoreDirectoryTextBox.Location = New-Object System.Drawing.Point(10,235)
-	$RestoreMenuRestoreDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
-	$RestoreMenuRestoreDirectoryTextBox.Text = "$RestoreDirectory"
-	$RestoreMenuRestoreDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuRestoreDirectoryTextBox.ReadOnly = $true
-	#######################################################################################################	
-	$RestoreMenuBackupDirectoryTextBox = New-Object System.Windows.Forms.TextBox
-	$RestoreMenuBackupDirectoryTextBox.Location = New-Object System.Drawing.Point(10,300)
-	$RestoreMenuBackupDirectoryTextBox.Size = New-Object System.Drawing.Size(800,35)
-	$RestoreMenuBackupDirectoryTextBox.Text = "$BackupFolder"
-	$RestoreMenuBackupDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuBackupDirectoryTextBox.ReadOnly = $true
-	#######################################################################################################
-	$RestoreMenuLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuLabel.Location = New-Object System.Drawing.Point(211, 9)
-	$RestoreMenuLabel.Size = New-Object System.Drawing.Size(391, 23)
-	$RestoreMenuLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuLabel.Text = "Please select one of the options below"
-	######################################################################################################
-	$RestoreMenuClassicRestoreLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuClassicRestoreLabel.Location = New-Object System.Drawing.Point(193, 71)
-	$RestoreMenuClassicRestoreLabel.Size = New-Object System.Drawing.Size(607, 65)
-	$RestoreMenuClassicRestoreLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuClassicRestoreLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuClassicRestoreLabel.Text = "Click this button if you want to restore one of your backups selected from the list to the directory specified below."
-	$RestoreMenuClassicRestoreLabel.BorderStyle = "FixedSingle"
-	######################################################################################################
-	$RestoreMenuRestoreAfterDisasterLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuRestoreAfterDisasterLabel.Location = New-Object System.Drawing.Point(193, 143)
-	$RestoreMenuRestoreAfterDisasterLabel.Size = New-Object System.Drawing.Size(607, 65)
-	$RestoreMenuRestoreAfterDisasterLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuRestoreAfterDisasterLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuRestoreAfterDisasterLabel.Text = "It works only if you check the box `'Make a backup before restoring an archive copy?`'. By clicking this button, you can restore the backup that was made before the previous restore."
-	$RestoreMenuRestoreAfterDisasterLabel.BorderStyle = "FixedSingle"
-	######################################################################################################
-	$RestoreMenuFromRestoreLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuFromRestoreLabel.Location = New-Object System.Drawing.Point(10, 210)
-	$RestoreMenuFromRestoreLabel.Size = New-Object System.Drawing.Size(800, 20)
-	$RestoreMenuFromRestoreLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuFromRestoreLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuFromRestoreLabel.Text = "Folder to restore backup to:"
-	######################################################################################################
-	$RestoreMenuToRestoreLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuToRestoreLabel.Location = New-Object System.Drawing.Point(10, 275)
-	$RestoreMenuToRestoreLabel.Size = New-Object System.Drawing.Size(800, 20)
-	$RestoreMenuToRestoreLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuToRestoreLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuToRestoreLabel.Text = "Backup folder are located in:"
-	######################################################################################################
-	$RestoreMenuSpaceLeftOnDiskLabel = New-Object System.Windows.Forms.Label
-	$RestoreMenuSpaceLeftOnDiskLabel.Location = New-Object System.Drawing.Point(10, 340)
-	$RestoreMenuSpaceLeftOnDiskLabel.Size = New-Object System.Drawing.Size(800, 20)
-	$RestoreMenuSpaceLeftOnDiskLabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$RestoreMenuSpaceLeftOnDiskLabel.TextAlign = 'MiddleCenter'
-	$RestoreMenuSpaceLeftOnDiskLabel.Text = "There is $DriveRestoreLeftSpace MB of free space left on drive $DriveLetter_restore."
-	######################################################################################################
-	$RestoreMenuForm.AcceptButton = $RestoreMenuExitButton
-	$RestoreMenuForm.Controls.Add($RestoreMenuExitButton)
-	$RestoreMenuForm.Controls.Add($RestoreMenuCheckBox)
-	$RestoreMenuForm.AcceptButton = $RestoreMenuClassicRestoreButton
-	$RestoreMenuForm.Controls.Add($RestoreMenuClassicRestoreButton)
-	$RestoreMenuForm.AcceptButton = $RestoreMenuRestoreAfterDisasterButton
-	$RestoreMenuForm.Controls.Add($RestoreMenuRestoreAfterDisasterButton)
-	$RestoreMenuForm.Controls.Add($RestoreMenuLabel)
-	$RestoreMenuForm.Controls.Add($RestoreMenuClassicRestoreLabel)
-	$RestoreMenuForm.Controls.Add($RestoreMenuRestoreAfterDisasterLabel)
-	$RestoreMenuForm.Controls.Add($RestoreMenuSpaceLeftOnDiskLabel)
-	$RestoreMenuForm.Controls.Add($RestoreMenuFromRestoreLabel)
-	$RestoreMenuForm.Controls.Add($RestoreMenuToRestoreLabel)
-	$RestoreMenuForm.Controls.Add($RestoreMenuRestoreDirectoryTextBox)
-	$RestoreMenuForm.Controls.Add($RestoreMenuBackupDirectoryTextBox)
-	######################################################################################################
-	if ($RestoreMenuCheckBox.Checked){
-		$RestoreMenuRestoreAfterDisasterButton.Enabled = $true
-	}
-	else{
-		$RestoreMenuRestoreAfterDisasterButton.Enabled = $false
-	}
-	$Script:RestoreMenuResult = $RestoreMenuForm.ShowDialog()
-}
-
-function AdvancedMenu {
-	$AdvancedMenuForm = New-Object System.Windows.Forms.Form
-	$AdvancedMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$AdvancedMenuForm.ClientSize = New-Object System.Drawing.Size(983, 466)
-	$AdvancedMenuForm.Font = New-Object System.Drawing.Font("Times New Roman", 18,[System.Drawing.FontStyle]::Bold,[System.Drawing.GraphicsUnit]::Point, 204)
-	$AdvancedMenuForm.BackColor = [System.Drawing.Color]::Black
-	$AdvancedMenuForm.ForeColor = [System.Drawing.Color]::White
-	$AdvancedMenuForm.StartPosition = 'CenterScreen'
-	$AdvancedMenuForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Fixed3D
-	$AdvancedMenuForm.Margin = New-Object System.Windows.Forms.Padding(7, 6, 7, 6)
-	$AdvancedMenuForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$AdvancedMenuExitButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuExitButton.Location = New-Object System.Drawing.Point(887, 422)
-	$AdvancedMenuExitButton.Size = New-Object System.Drawing.Size(84, 35)
-	$AdvancedMenuExitButton.Text = "Exit"
-	$AdvancedMenuExitButton.UseVisualStyleBackColor = $true
-	$AdvancedMenuExitButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuExitButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-	#######################################################################################################
-	$AdvancedMenuOkButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuOkButton.Location = New-Object System.Drawing.Point(12, 422)
-	$AdvancedMenuOkButton.Size = New-Object System.Drawing.Size(84, 35)
-	$AdvancedMenuOkButton.Text = "Ok"
-	$AdvancedMenuOkButton.UseVisualStyleBackColor = $true
-	$AdvancedMenuOkButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuOkButton.Add_Click({
-		$Script:BackupName = $AdvancedMenuBackupNameTextBox.Text -Replace '[\W]'
-		$Script:BackupDayFilter = $AdvancedMenuBackupDayFilterTextBox.Text -Replace '[\D]'
-		if ($BackupDayFilter -ge 150000){
-			$Script:BackupDayFilter = 150000
-		}
-		$AdvancedMenuBackupDayFilterTextBox.Text = $BackupDayFilter
-		if (check_all_params){
-			$Script:ErrorLabelText = "Please fill in all required fields"
-			ErrorForm
-		}
-		else{
-			VariablesDoNotTouch
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content -Encoding $Encoding $Path_to_Script
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content -Encoding $Encoding $Path_to_Script
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content -Encoding $Encoding $Path_to_Script
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content -Encoding $Encoding $Path_to_Script
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content -Encoding $Encoding $Path_to_Script
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content -Encoding $Encoding $Path_to_Script
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content -Encoding $Encoding $Path_to_Script
-			(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content -Encoding $Encoding $Path_to_Script
-			$ErrorLabelText = 'The configurations are set, please restart the script'
-			ErrorForm
-			$AdvancedMenuForm.Close()
-		}
-	})
-	#######################################################################################################
-	$AdvancedMenuClearConfigButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuClearConfigButton.Location = New-Object System.Drawing.Point(414, 422)
-	$AdvancedMenuClearConfigButton.Size = New-Object System.Drawing.Size(154, 35)
-	$AdvancedMenuClearConfigButton.Text = "Clear Config"
-	$AdvancedMenuClearConfigButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuClearConfigButton.Add_Click({
-		VariablesDoNotTouch
-		$Script:BackupFolder=""
-		$Script:7z_directory="C:\Program Files\7-Zip\"
-		$Script:SecondBackupFolder=""
-		$Script:BackupName=""
-		$Script:WhatToBackup=""
-		$Script:RestoreDirectory=""
-		$Script:NumberOfBackups="2"
-		$Script:BackupDayFilter="15"
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe4","`[String`]`$Script:BackupName`=`"$BackupName`" `#4") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe2","`[String`]`$Script:7z_directory`=`"$7z_directory`" `#2") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe6","`[String`]`$Script:RestoreDirectory`=`"$RestoreDirectory`" `#6") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe3","`[String`]`$Script:SecondBackupFolder`=`"$SecondBackupFolder`" `#3") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe8","`[Decimal`]`$Script:BackupDayFilter`=`"$BackupDayFilter`" `#8") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe7","`[Decimal`]`$Script:NumberOfBackups`=`"$NumberOfBackups`" `#7") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe1","`[String`]`$Script:BackupFolder`=`"$BackupFolder`" `#1") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Content -Encoding $Encoding $Path_to_Script).Replace("$ChangeMe5","`[String`]`$Script:WhatToBackup`=`"$WhatToBackup`" `#5") | Set-Content -Encoding $Encoding $Path_to_Script
-		(Get-Variable -Name AdvancedMenuBackupFolderTextBox -Scope 1).Value.Text = $BackupFolder
-		(Get-Variable -Name AdvancedMenuSecondBackupFolderTextBox -Scope 1).Value.Text = $SecondBackupFolder
-		(Get-Variable -Name AdvancedMenuWhatToBackupTextBox -Scope 1).Value.Text = $WhatToBackup
-		(Get-Variable -Name AdvancedMenu7zDirectoryTextBox -Scope 1).Value.Text = $7z_directory
-		(Get-Variable -Name AdvancedMenuRestoreFolderTextBox -Scope 1).Value.Text = $RestoreDirectory
-		(Get-Variable -Name AdvancedMenuBackupNameTextBox -Scope 1).Value.Text = $BackupName
-		(Get-Variable -Name AdvancedMenuBackupAmountTextBox -Scope 1).Value.Text = $NumberOfBackups
-		(Get-Variable -Name AdvancedMenuBackupDayFilterTextBox -Scope 1).Value.Text = $BackupDayFilter
-		$Script:ErrorLabelText = 'Configuration cleanup was successful. Please restart the script.'
-		ErrorForm
-	})
-	#######################################################################################################
-	$AdvancedMenuBackupFolderButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuBackupFolderButton.Location = New-Object System.Drawing.Point(472, 83)
-	$AdvancedMenuBackupFolderButton.Size = New-Object System.Drawing.Size(84, 35)
-	$AdvancedMenuBackupFolderButton.Text = "..."
-	$AdvancedMenuBackupFolderButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuBackupFolderButton.Add_Click({
-		$AdvancedMenuBackupFolderButtonFoldername = New-Object System.Windows.Forms.FolderBrowserDialog
-		$AdvancedMenuBackupFolderButtonFoldername.RootFolder = "MyComputer"
-		if($AdvancedMenuBackupFolderButtonFoldername.ShowDialog() -eq "OK"){
-			$Script:BackupFolder = $AdvancedMenuBackupFolderButtonFoldername.SelectedPath
-			$Script:BackupFolder += '\'
-		}
-		(Get-Variable -Name AdvancedMenuBackupFolderTextBox -Scope 1).Value.Text = $BackupFolder
-	})
+	function CMDAutomationTypeExecutor {
+		param (
+			[string]$AutomationType,
+			$ProfileObject
+		)
 	
-	#######################################################################################################
-	$AdvancedMenuSecondBackupFolderButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuSecondBackupFolderButton.Location = New-Object System.Drawing.Point(472, 124)
-	$AdvancedMenuSecondBackupFolderButton.Size = New-Object System.Drawing.Size(84, 35)
-	$AdvancedMenuSecondBackupFolderButton.Text = "..."
-	$AdvancedMenuSecondBackupFolderButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuSecondBackupFolderButton.Add_Click({
-		$AdvancedMenuSecondBackupFolderButtonFoldername = New-Object System.Windows.Forms.FolderBrowserDialog
-		$AdvancedMenuSecondBackupFolderButtonFoldername.RootFolder = "MyComputer"
-		if($AdvancedMenuSecondBackupFolderButtonFoldername.ShowDialog() -eq "OK"){
-			$Script:SecondBackupFolder = $AdvancedMenuSecondBackupFolderButtonFoldername.SelectedPath
-			$Script:SecondBackupFolder += '\'
+		switch ($AutomationType) {
+			'SimpleBackup' {
+				$JobParameters = @{
+					Executable_7z         = $ProfileObject.Executable_7z
+					BackupDirectory       = $ProfileObject.BackupDirectory
+					SecondBackupDirectory = $ProfileObject.SecondBackupDirectory
+					BackupName            = $ProfileObject.BackupName
+					Source                = $ProfileObject.Source
+					RestorePoints         = $ProfileObject.RestorePoints
+					MessageSingleDir      = $(TextFiller -JobStartingMessage ' Archiving JOB Started ' -JobEndingMessage ' Archiving JOB Finished ')
+					MessageFirstDir       = $(TextFiller -JobStartingMessage ' Archiving JOB to the First Directory Started ' -JobEndingMessage ' First Archiving JOB Finished ')
+					MessageSecondDir      = $(TextFiller -JobStartingMessage ' Archiving JOB to the Second Directory Started ' -JobEndingMessage ' Second Archiving JOB Finished ')
+				}
+				SimpleBackup_Job @JobParameters
+			}
+			'TimeFilteredBackup' {
+				$JobParameters = @{
+					Executable_7z         = $ProfileObject.Executable_7z
+					BackupDirectory       = $ProfileObject.BackupDirectory
+					SecondBackupDirectory = $ProfileObject.SecondBackupDirectory
+					BackupName            = $ProfileObject.BackupName
+					Source                = $ProfileObject.Source
+					RestorePoints         = $ProfileObject.RestorePoints
+					BackupDayFilter       = $ProfileObject.BackupDayFilter
+					MessageSingleDir      = $(TextFiller -JobStartingMessage ' Time Filtered Archiving JOB Started ' -JobEndingMessage ' Time Filtered Archiving JOB Finished ')
+					MessageFirstDir       = $(TextFiller -JobStartingMessage ' Time Filtered Archiving JOB to the First Directory Started ' -JobEndingMessage ' First Time Filtered Archiving JOB Finished ')
+					MessageSecondDir      = $(TextFiller -JobStartingMessage ' Time Filtered Archiving JOB to the Second Directory Started ' -JobEndingMessage ' Second Time Filtered Archiving JOB Finished ')
+				}
+				TimeFilteredBackup_Job @JobParameters
+			}
+			'Copy' {
+				$JobParameters = @{
+					BackupDirectory       = $ProfileObject.BackupDirectory
+					SecondBackupDirectory = $ProfileObject.SecondBackupDirectory
+					Source                = $ProfileObject.Source
+					MessageSingleDir      = $(TextFiller -JobStartingMessage ' Copy JOB Started ' -JobEndingMessage ' Copy JOB Finished ')
+					MessageFirstDir       = $(TextFiller -JobStartingMessage ' Copy JOB to the First Folder Started ' -JobEndingMessage ' First Copy JOB Finished ')
+					MessageSecondDir      = $(TextFiller -JobStartingMessage ' Copy JOB to the Second Folder Started ' -JobEndingMessage ' Second Copy JOB Finished ')
+				}
+				CopyFile_Job @JobParameters
+			}
+			'Sync' {
+				$JobParameters = @{
+					BackupDirectory       = $ProfileObject.BackupDirectory
+					SecondBackupDirectory = $ProfileObject.SecondBackupDirectory
+					Source                = $ProfileObject.Source
+					MessageSingleDir      = $(TextFiller -JobStartingMessage ' Sync Copy JOB Started ' -JobEndingMessage ' Sync JOB Finished ')
+					MessageFirstDir       = $(TextFiller -JobStartingMessage ' Sync JOB to the First Folder Started ' -JobEndingMessage ' First Sync JOB Finished ')
+					MessageSecondDir      = $(TextFiller -JobStartingMessage ' Sync JOB to the Second Folder Started ' -JobEndingMessage ' Second Sync JOB Finished ')
+				}
+				Sync_Job @JobParameters
+			}
 		}
-		(Get-Variable -Name AdvancedMenuSecondBackupFolderTextBox -Scope 1).Value.Text = $SecondBackupFolder
-	})
-	#######################################################################################################
-	$AdvancedMenuBackupAmountPlusButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuBackupAmountPlusButton.Font = New-Object System.Drawing.Font("Times New Roman", 14)
-	$AdvancedMenuBackupAmountPlusButton.Location = New-Object System.Drawing.Point(472, 165)
-	$AdvancedMenuBackupAmountPlusButton.Size = New-Object System.Drawing.Size(39, 35)
-	$AdvancedMenuBackupAmountPlusButton.Text = "+1"
-	$AdvancedMenuBackupAmountPlusButton.UseVisualStyleBackColor = $true
-	$AdvancedMenuBackupAmountPlusButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuBackupAmountPlusButton.Add_Click({
-		$Script:NumberOfBackups +=1
-		$AdvancedMenuBackupAmountTextBox.Text = "$NumberOfBackups"
-	})
-	#######################################################################################################
-	$AdvancedMenuBackupAmountMinusButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuBackupAmountMinusButton.Font = New-Object System.Drawing.Font("Times New Roman", 14)
-	$AdvancedMenuBackupAmountMinusButton.Location = New-Object System.Drawing.Point(516, 165)
-	$AdvancedMenuBackupAmountMinusButton.Size = New-Object System.Drawing.Size(39, 35)
-	$AdvancedMenuBackupAmountMinusButton.Text = "-1"
-	$AdvancedMenuBackupAmountMinusButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuBackupAmountMinusButton.Add_Click({
-		$Script:NumberOfBackups -=1
-		if ($NumberOfBackups -eq '0'){
-			$Script:NumberOfBackups = 1
-		}
-		$AdvancedMenuBackupAmountTextBox.Text = "$NumberOfBackups"
-	})
-	#######################################################################################################
-	$AdvancedMenuWhatToBackupFolderButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuWhatToBackupFolderButton.Location = New-Object System.Drawing.Point(471, 271)
-	$AdvancedMenuWhatToBackupFolderButton.Size = New-Object System.Drawing.Size(42, 35)
-	$AdvancedMenuWhatToBackupFolderButton.Text = "Folder"
-	$AdvancedMenuWhatToBackupFolderButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuWhatToBackupFolderButton.Font = New-Object System.Drawing.Font("Times New Roman", 7,[System.Drawing.FontStyle]::Bold,[System.Drawing.GraphicsUnit]::Point, 204)
-	$AdvancedMenuWhatToBackupFolderButton.Add_Click({
-		$AdvancedMenuWhatToBackupFolderButtonFoldername = New-Object System.Windows.Forms.FolderBrowserDialog
-		$AdvancedMenuWhatToBackupFolderButtonFoldername.RootFolder = "MyComputer"
-		if($AdvancedMenuWhatToBackupFolderButtonFoldername.ShowDialog() -eq "OK"){
-			$Script:WhatToBackup = $AdvancedMenuWhatToBackupFolderButtonFoldername.SelectedPath
-			$Script:WhatToBackup += '\'
-		}
-		(Get-Variable -Name AdvancedMenuWhatToBackupTextBox -Scope 1).Value.Text = $WhatToBackup
-	})
-	#######################################################################################################
-	$AdvancedMenuWhatToBackupFileButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuWhatToBackupFileButton.Location = New-Object System.Drawing.Point(513, 271)
-	$AdvancedMenuWhatToBackupFileButton.Size = New-Object System.Drawing.Size(42, 35)
-	$AdvancedMenuWhatToBackupFileButton.Text = "File"
-	$AdvancedMenuWhatToBackupFileButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuWhatToBackupFileButton.Font = New-Object System.Drawing.Font("Times New Roman", 7,[System.Drawing.FontStyle]::Bold,[System.Drawing.GraphicsUnit]::Point, 204)
-	$AdvancedMenuWhatToBackupFileButton.Add_Click({
-		$AdvancedMenuWhatToBackupFileButtonFileName = New-Object System.Windows.Forms.OpenFileDialog
-		if($AdvancedMenuWhatToBackupFileButtonFileName.ShowDialog() -eq "OK"){
-			$Script:WhatToBackup = $AdvancedMenuWhatToBackupFileButtonFileName.FileName
-		}
-		(Get-Variable -Name AdvancedMenuWhatToBackupTextBox -Scope 1).Value.Text = $WhatToBackup
-	})
-	#######################################################################################################
-	$AdvancedMenuRestoreFolderButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuRestoreFolderButton.Location = New-Object System.Drawing.Point(472, 312)
-	$AdvancedMenuRestoreFolderButton.Size = New-Object System.Drawing.Size(84, 35)
-	$AdvancedMenuRestoreFolderButton.Text = "..."
-	$AdvancedMenuRestoreFolderButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuRestoreFolderButton.Add_Click({
-		$AdvancedMenuRestoreFolderButtonFoldername = New-Object System.Windows.Forms.FolderBrowserDialog
-		$AdvancedMenuRestoreFolderButtonFoldername.RootFolder = "MyComputer"
-		if($AdvancedMenuRestoreFolderButtonFoldername.ShowDialog() -eq "OK"){
-			$Script:RestoreDirectory = $AdvancedMenuRestoreFolderButtonFoldername.SelectedPath
-			$Script:RestoreDirectory += '\'
-		}
-		(Get-Variable -Name AdvancedMenuRestoreFolderTextBox -Scope 1).Value.Text = $RestoreDirectory
-	})
-	#######################################################################################################
-	$AdvancedMenu7ZipButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenu7ZipButton.Location = New-Object System.Drawing.Point(472, 370)
-	$AdvancedMenu7ZipButton.Size = New-Object System.Drawing.Size(84, 35)
-	$AdvancedMenu7ZipButton.Text = "..."
-	$AdvancedMenu7ZipButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenu7ZipButton.Add_Click({
-		$AdvancedMenu7ZipButtonFoldername = New-Object System.Windows.Forms.FolderBrowserDialog
-		$AdvancedMenu7ZipButtonFoldername.RootFolder = "MyComputer"
-		$AdvancedMenu7ZipButtonFoldername.SelectedPath = "C:\Program Files\"
-		if($AdvancedMenu7ZipButtonFoldername.ShowDialog() -eq "OK"){
-			$Script:7z_directory = $AdvancedMenu7ZipButtonFoldername.SelectedPath
-			$Script:7z_directory += '\'
-		}
-		(Get-Variable -Name AdvancedMenu7zDirectoryTextBox -Scope 1).Value.Text = $7z_directory
-		if ( Test-Path -Path "$7z_directory\7z.exe" ){}
-		else{
-			$Script:ErrorLabelText = "Wrong directory.`nThere are no 7z.exe in directory`n$7z_directory"
-			ErrorForm
-			$Script:7z_directory="C:\Program Files\7-Zip\"
-			(Get-Variable -Name AdvancedMenu7zDirectoryTextBox -Scope 1).Value.Text = $7z_directory
-		}
-	})
-	#######################################################################################################
-	$AdvancedMenuLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuLabel.Location = New-Object System.Drawing.Point(60, 9)
-	$AdvancedMenuLabel.Size = New-Object System.Drawing.Size(862, 30)
-	$AdvancedMenuLabel.Text = "Welcome. Set all the settings before using the program."
-	$AdvancedMenuLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-	#######################################################################################################
-	$AdvancedMenuBackupNameLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuBackupNameLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenuBackupNameLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuBackupNameLabel.Location = New-Object System.Drawing.Point(562, 42)
-	$AdvancedMenuBackupNameLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuBackupNameLabel.Text = "* Backup name. This field is not used in the copy function. *This is Mandatory field"
-	$AdvancedMenuBackupNameLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-	#######################################################################################################
-	$AdvancedMenuBackupFolderLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuBackupFolderLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenuBackupFolderLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuBackupFolderLabel.Location = New-Object System.Drawing.Point(562, 83)
-	$AdvancedMenuBackupFolderLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuBackupFolderLabel.Text = "* Backup Folder. *This is Mandatory field"
-	$AdvancedMenuBackupFolderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-	#######################################################################################################
-	$AdvancedMenuSecondBackupFolderLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuSecondBackupFolderLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenuSecondBackupFolderLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuSecondBackupFolderLabel.Location = New-Object System.Drawing.Point(562, 124)
-	$AdvancedMenuSecondBackupFolderLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuSecondBackupFolderLabel.Text = "Second Backup Folder. If you want to create a copy of your backup in another directory, specify it here."
-	$AdvancedMenuSecondBackupFolderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-	#######################################################################################################
-	$AdvancedMenuBackupAmountLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuBackupAmountLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenuBackupAmountLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuBackupAmountLabel.Location = New-Object System.Drawing.Point(562, 165)
-	$AdvancedMenuBackupAmountLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuBackupAmountLabel.Text = "* Number of backups. Specify how many backups you would like to keep. This value cannot be less than 1. *This is Mandatory field"
-	$AdvancedMenuBackupAmountLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-	#######################################################################################################
-	$AdvancedMenuBackupDayFilterLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuBackupDayFilterLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenuBackupDayFilterLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuBackupDayFilterLabel.Location = New-Object System.Drawing.Point(562, 206)
-	$AdvancedMenuBackupDayFilterLabel.Size = New-Object System.Drawing.Size(409, 54)
-	$AdvancedMenuBackupDayFilterLabel.Text = "Day Filter. If you want to archive only files in the directory that were created several days ago. In this field, specify the number of days that will be used as a filter for archiving. This value cannot be less than 1. "
-	$AdvancedMenuBackupDayFilterLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-	#######################################################################################################
-	$AdvancedMenuWhatToBackupLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuWhatToBackupLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenuWhatToBackupLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuWhatToBackupLabel.Location = New-Object System.Drawing.Point(562, 270)
-	$AdvancedMenuWhatToBackupLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuWhatToBackupLabel.Text = "* Source folder(file). Select folder or a file you want to archive. *This is Mandatory field"
-	$AdvancedMenuWhatToBackupLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
- 	#######################################################################################################
-	$AdvancedMenuRestoreFolderLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenuRestoreFolderLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenuRestoreFolderLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenuRestoreFolderLabel.Location = New-Object System.Drawing.Point(562, 312)
-	$AdvancedMenuRestoreFolderLabel.Size = New-Object System.Drawing.Size(409, 35)
-	$AdvancedMenuRestoreFolderLabel.Text = "Restore Folder. Select folder that will be used when restoring the archive. Usually this directory is the same as the folder that will be archived."
-	$AdvancedMenuRestoreFolderLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
- 	#######################################################################################################
-	$AdvancedMenu7zDirectoryLabel = New-Object System.Windows.Forms.Label
-	$AdvancedMenu7zDirectoryLabel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-	$AdvancedMenu7zDirectoryLabel.Font = New-Object System.Drawing.Font("Times New Roman", 10)
-	$AdvancedMenu7zDirectoryLabel.Location = New-Object System.Drawing.Point(562, 359)
-	$AdvancedMenu7zDirectoryLabel.Size = New-Object System.Drawing.Size(409, 60)
-	$AdvancedMenu7zDirectoryLabel.Text = "* 7-zip Folder. Specify the directory where the 7-zip archiving program is located. Or install it from the official source: https://www.7-zip.org/download.html. *This is Mandatory field"
-	$AdvancedMenu7zDirectoryLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-	#######################################################################################################
-	$AdvancedMenuBackupNameTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenuBackupNameTextBox.Location = New-Object System.Drawing.Point(12, 42)
-	$AdvancedMenuBackupNameTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenuBackupNameTextBox.Text = "$BackupName"
-	$AdvancedMenuBackupNameTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	#######################################################################################################
-	$AdvancedMenuBackupFolderTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenuBackupFolderTextBox.Location = New-Object System.Drawing.Point(11, 83)
-	$AdvancedMenuBackupFolderTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenuBackupFolderTextBox.Text = "$BackupFolder"
-	$AdvancedMenuBackupFolderTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$AdvancedMenuBackupFolderTextBox.ReadOnly = $true
-	#######################################################################################################
-	$AdvancedMenuSecondBackupFolderTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenuSecondBackupFolderTextBox.Location = New-Object System.Drawing.Point(12, 124)
-	$AdvancedMenuSecondBackupFolderTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenuSecondBackupFolderTextBox.Text = "$SecondBackupFolder"
-	$AdvancedMenuSecondBackupFolderTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$AdvancedMenuSecondBackupFolderTextBox.ReadOnly = $true
-	#######################################################################################################
-	$AdvancedMenuBackupAmountTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenuBackupAmountTextBox.Location = New-Object System.Drawing.Point(12, 165)
-	$AdvancedMenuBackupAmountTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenuBackupAmountTextBox.Text = "$NumberOfBackups"
-	$AdvancedMenuBackupAmountTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	#######################################################################################################
-	$AdvancedMenuBackupDayFilterTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenuBackupDayFilterTextBox.Location = New-Object System.Drawing.Point(12, 214)
-	$AdvancedMenuBackupDayFilterTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenuBackupDayFilterTextBox.Text = "$BackupDayFilter"
-	$AdvancedMenuBackupDayFilterTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	#######################################################################################################
-	$AdvancedMenuWhatToBackupTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenuWhatToBackupTextBox.Location = New-Object System.Drawing.Point(11, 271)
-	$AdvancedMenuWhatToBackupTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenuWhatToBackupTextBox.Text = "$WhatToBackup"
-	$AdvancedMenuWhatToBackupTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$AdvancedMenuWhatToBackupTextBox.ReadOnly = $true
-	#######################################################################################################
-	$AdvancedMenuRestoreFolderTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenuRestoreFolderTextBox.Location = New-Object System.Drawing.Point(12, 312)
-	$AdvancedMenuRestoreFolderTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenuRestoreFolderTextBox.Text = "$RestoreDirectory"
-	$AdvancedMenuRestoreFolderTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$AdvancedMenuRestoreFolderTextBox.ReadOnly = $true
-	#######################################################################################################
-	$AdvancedMenu7zDirectoryTextBox = New-Object System.Windows.Forms.TextBox
-	$AdvancedMenu7zDirectoryTextBox.Location = New-Object System.Drawing.Point(11, 370)
-	$AdvancedMenu7zDirectoryTextBox.Size = New-Object System.Drawing.Size(454, 35)
-	$AdvancedMenu7zDirectoryTextBox.Text = "$7z_directory"
-	$AdvancedMenu7zDirectoryTextBox.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$AdvancedMenu7zDirectoryTextBox.ReadOnly = $true
-	#######################################################################################################
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuExitButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuExitButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuOkButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuOkButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuClearConfigButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuClearConfigButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuBackupFolderButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupFolderButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuSecondBackupFolderButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuSecondBackupFolderButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuBackupAmountPlusButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupAmountPlusButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuBackupAmountMinusButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupAmountMinusButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuWhatToBackupFolderButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuWhatToBackupFolderButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuWhatToBackupFileButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuWhatToBackupFileButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenuRestoreFolderButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuRestoreFolderButton)
-	$AdvancedMenuForm.AcceptButton = $AdvancedMenu7ZipButton
-	$AdvancedMenuForm.Controls.Add($AdvancedMenu7ZipButton)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupNameLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupFolderLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuSecondBackupFolderLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupAmountLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupDayFilterLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuWhatToBackupLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuRestoreFolderLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenu7zDirectoryLabel)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupNameTextBox)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupFolderTextBox)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuSecondBackupFolderTextBox)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupAmountTextBox)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuBackupDayFilterTextBox)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuWhatToBackupTextBox)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenuRestoreFolderTextBox)
-	$AdvancedMenuForm.Controls.Add($AdvancedMenu7zDirectoryTextBox)
-	#######################################################################################################
-	$Script:AdvancedMenuResult = $AdvancedMenuForm.ShowDialog()
-}
+	}
 
-function Backup_directory {
-	explorer "$BackupFolder"
-}
+	function TextFiller {
+		param (
+			[string]$JobStartingMessage,
+			[string]$JobEndingMessage,
+			[string]$SingleMessage
+		)
 
-function Restore_directory {
-	explorer "$RestoreDirectory"
-}
+		if ($SingleMessage) {
+			$SingleMessageText = '#' * 5 + $SingleMessage + '#' * 5 
+		}
+		if ($JobStartingMessage) {
+			$body_start = '#' * [math]::Floor((79 - $JobStartingMessage.Length) / 2) + $JobStartingMessage + '#' * [math]::Ceiling((79 - $JobStartingMessage.Length) / 2)
+			$StartMessage = "$('#'*79)`n$body_start`n$('#'*79)`n"
+		}
+		if ($JobEndingMessage) {
+			$body_end = '#' * [math]::Floor((79 - $JobEndingMessage.Length) / 2) + $JobEndingMessage + '#' * [math]::Ceiling((79 - $JobEndingMessage.Length) / 2)
+			$EndMessage = "`n$('#'*79)`n$body_end`n$('#'*79)"
+		}
+		$Message = [PSCustomObject]@{
+			StartMessage  = $StartMessage
+			EndMessage    = $EndMessage
+			SingleMessage = $SingleMessageText
+		}
+	
+		return $Message
+	}
+	#FUNCTION_SCRIPT_BODY##########################################################################END
+	#FUNCTIONS_ADVANCED_MENU#######################################################################
+	function ClearProfile {
+		$AdvancedMenu_ProfileName_TEXTBOX.Text = $null
+		$AdvancedMenu_BackupName_TEXTBOX.Text = $null
+		$AdvancedMenu_BackupDirectory_TEXTBOX.Text = $null
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text = $null
+		$AdvancedMenu_RestorePoints_TEXTBOX.Text = $null
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Text = $null
+		$AdvancedMenu_Source_TEXTBOX.Text = $null
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.Text = $null
+		$AdvancedMenu_7zipExecutable_TEXTBOX.Text = $null
+		$AdvancedMenu_Backup_CHECKBOX.Checked = $false
+		$AdvancedMenu_Restore_CHECKBOX.Checked = $false
+		$AdvancedMenu_Copy_CHECKBOX.Checked = $false
+	}
 
-function MainMenu {
-	$MainMenuForm = New-Object System.Windows.Forms.Form
-	$MainMenuForm.Text = "PowerShell 7z Backup and Restore v$ScriptVersion"
-	$MainMenuForm.ClientSize = New-Object System.Drawing.Size(420,285)
-	$MainMenuForm.Font = New-Object System.Drawing.Font("Times New Roman",18,[System.Drawing.FontStyle]::Bold)
-	$MainMenuForm.BackColor = 'Black'
-	$MainMenuForm.ForeColor = 'White'
-	$MainMenuForm.StartPosition = 'CenterScreen'
-	$MainMenuForm.FormBorderStyle = 'FixedDialog'
-	#######################################################################################################
-	$ExitButton = New-Object System.Windows.Forms.Button
-	$ExitButton.Location = New-Object System.Drawing.Point(160,240)
-	$ExitButton.Size = New-Object System.Drawing.Size(100,35)
-	$ExitButton.Text = 'Exit'
-	$ExitButton.TextAlign = 'MiddleCenter'
-	$ExitButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-	#######################################################################################################
-	$Script:UpdateButton = New-Object System.Windows.Forms.Button
-	$UpdateButton.Location = New-Object System.Drawing.Point(5,165)
-	$UpdateButton.Size = New-Object System.Drawing.Size(410,35)
-	$UpdateButton.Text = 'Check for Updates?'
-	$UpdateButton.Enabled = $true
-	$UpdateButton.TextAlign = 'MiddleCenter'
-	$UpdateButton.Add_Click({
-		if ($ScriptUpdate -eq 1){
-			UpdateScript
+	function EditProfile {
+		param (
+			[string]$ChosenProfile,
+			$ProfileXmlObject
+		)
+
+		$ProfileMenu_LABEL.Tag += 1
+		$ProfileIndex = $ProfileXmlObject.IndexOf($($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$ChosenProfile" }))
+		$ProfileXmlObject[$ProfileIndex].ProfileName = "$($AdvancedMenu_ProfileName_TEXTBOX.Text)"
+		$ProfileXmlObject[$ProfileIndex].BackupDirectory = "$($AdvancedMenu_BackupDirectory_TEXTBOX.Text)"
+		$ProfileXmlObject[$ProfileIndex].Executable_7z = "$($AdvancedMenu_7zipExecutable_TEXTBOX.Text)"
+		$ProfileXmlObject[$ProfileIndex].SecondBackupDirectory = "$($AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text)"
+		$ProfileXmlObject[$ProfileIndex].BackupName = "$($AdvancedMenu_BackupName_TEXTBOX.Text)"
+		$ProfileXmlObject[$ProfileIndex].Source = "$($AdvancedMenu_Source_TEXTBOX.Text)"
+		$ProfileXmlObject[$ProfileIndex].RestoreDirectory = "$($AdvancedMenu_RestoreDirectory_TEXTBOX.Text)"
+		$ProfileXmlObject[$ProfileIndex].RestorePoints = [decimal]$($AdvancedMenu_RestorePoints_TEXTBOX.Text)
+		$ProfileXmlObject[$ProfileIndex].BackupDayFilter = [decimal]$($AdvancedMenu_BackupDayFilter_TEXTBOX.Text)
+		$ProfileXmlObject[$ProfileIndex].BackupCheckboxStatus = $($AdvancedMenu_Backup_CHECKBOX.Checked)
+		$ProfileXmlObject[$ProfileIndex].RestoreCheckboxStatus = $($AdvancedMenu_Restore_CHECKBOX.Checked)
+		$ProfileXmlObject[$ProfileIndex].CopyCheckboxStatus = $($AdvancedMenu_Copy_CHECKBOX.Checked)
+		ListFiller -ProfileXmlObject $ProfileXmlObject -Menu 'ProfileMenu'
+		ProfileMenuButtonsActive
+		ErrorForm -ErrorLabelText "Profile: `"$($AdvancedMenu_ProfileName_TEXTBOX.Text)`" - changed."
+
+		return ,$ProfileXmlObject
+	}
+
+	function AddProfile {
+		param (
+			$ProfileXmlObject
+		)
+
+		$ProfileMenu_LABEL.Tag += 1
+		$SettingParameters = @{
+			ProfileName           = "$($AdvancedMenu_ProfileName_TEXTBOX.Text)"
+			BackupDirectory       = "$($AdvancedMenu_BackupDirectory_TEXTBOX.Text)"
+			Executable_7z         = "$($AdvancedMenu_7zipExecutable_TEXTBOX.Text)"
+			SecondBackupDirectory = "$($AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text)"
+			BackupName            = "$($AdvancedMenu_BackupName_TEXTBOX.Text)"
+			Source                = "$($AdvancedMenu_Source_TEXTBOX.Text)"
+			RestoreDirectory      = "$($AdvancedMenu_RestoreDirectory_TEXTBOX.Text)"
+			RestorePoints         = $($AdvancedMenu_RestorePoints_TEXTBOX.Text)
+			BackupDayFilter       = $($AdvancedMenu_BackupDayFilter_TEXTBOX.Text)
+			BackupCheckboxStatus  = $($AdvancedMenu_Backup_CHECKBOX.Checked)
+			RestoreCheckboxStatus = $($AdvancedMenu_Restore_CHECKBOX.Checked)
+			CopyCheckboxStatus    = $($AdvancedMenu_Copy_CHECKBOX.Checked)
+		}
+		[void]$ProfileXML.Add($(settings @SettingParameters))
+		ListFiller -ProfileXmlObject $ProfileXML -Menu 'ProfileMenu'
+		ProfileMenuButtonsActive
+		ErrorForm -ErrorLabelText "Profile: `"$($AdvancedMenu_ProfileName_TEXTBOX.Text)`" - created."
+
+		return ,$ProfileXML
+	}
+
+	function FieldValidation {
+		switch ($true) {
+		([string]::IsNullOrWhiteSpace($AdvancedMenu_ProfileName_TEXTBOX.Text)) {
+				ErrorForm -ErrorLabelText "An error occurred, the 'ProfileName' text field is empty.`nPlease enter a profile name in the appropriate text box" -Height 140 -Width 580
+				return "error"
+			}
+		(-not ($AdvancedMenu_Backup_CHECKBOX.Checked) -and -not ($AdvancedMenu_Restore_CHECKBOX.Checked) -and -not ($AdvancedMenu_Copy_CHECKBOX.Checked)) {
+				ErrorForm -ErrorLabelText "Click on the appropriate checkbox to select the functionality you will use."
+				return "error"
+			}
+		($AdvancedMenu_Backup_CHECKBOX.Checked)	{
+				if ([string]::IsNullOrWhiteSpace($AdvancedMenu_BackupName_TEXTBOX.Text)) {
+					ErrorForm -ErrorLabelText "An error occurred, the 'BackupName' text field is empty.`nPlease enter a backup name in the appropriate text box" -Height 140 -Width 580
+					return "error"
+				}
+				elseif ([string]::IsNullOrWhiteSpace($AdvancedMenu_BackupDirectory_TEXTBOX.Text)) {
+					ErrorForm -ErrorLabelText "An error occurred, the 'BackupDirectory' text field is empty.`nPlease select a directory to back up to" -Height 140 -Width 620
+					return "error"
+				}
+				elseif ([string]::IsNullOrWhiteSpace($AdvancedMenu_Source_TEXTBOX.Text)) {
+					ErrorForm -ErrorLabelText "An error occurred, the 'SourceDirectory' text field is empty.`nPlease select a source directory" -Height 140 -Width 620
+					return "error"
+				}
+				elseif (-not (Test-Path -Path "$($AdvancedMenu_7zipExecutable_TEXTBOX.Text)")) {
+					ErrorForm -ErrorLabelText "An error has occurred.`nThe path to the 7zip executable file is not valid.`nIf you do not have the 7zip program installed, please install it from the official website:`nhttps://www.7-zip.org/`nOr enter the path to the 7z.exe executable file in the appropriate text box." -Height 200 -Width 580
+					return "error"
+				}
+			}
+		($AdvancedMenu_Restore_CHECKBOX.Checked) {
+				if ([string]::IsNullOrWhiteSpace($AdvancedMenu_BackupDirectory_TEXTBOX.Text)) {
+					ErrorForm -ErrorLabelText "An error occurred, the 'BackupDirectory' text field is empty.`nPlease select a directory to back up to" -Height 140 -Width 580
+					return "error"
+				}
+				elseif ([string]::IsNullOrWhiteSpace($AdvancedMenu_RestoreDirectory_TEXTBOX.Text)) {
+					ErrorForm -ErrorLabelText "An error occurred, the 'RestoreDirectory' text field is empty.`nPlease select a directory to restore" -Height 140 -Width 580
+					return "error"
+				}
+				elseif (-not (Test-Path -Path "$($AdvancedMenu_7zipExecutable_TEXTBOX.Text)")) {
+					ErrorForm -ErrorLabelText "An error has occurred.`nThe path to the 7zip executable file is not valid.`nIf you do not have the 7zip program installed, please install it from the official website:`nhttps://www.7-zip.org/`nOr enter the path to the 7z.exe executable file in the appropriate text box." -Height 200 -Width 580
+					return "error"
+				}
+			}
+		($AdvancedMenu_Copy_CHECKBOX.Checked) {
+				if ([string]::IsNullOrWhiteSpace($AdvancedMenu_BackupDirectory_TEXTBOX.Text)) {
+					ErrorForm -ErrorLabelText "An error occurred, the 'BackupDirectory' text field is empty.`nPlease select a directory to back up to" -Height 140 -Width 580
+					return "error"
+				}
+				elseif ([string]::IsNullOrWhiteSpace($AdvancedMenu_Source_TEXTBOX.Text)) {
+					ErrorForm -ErrorLabelText "An error occurred, the 'SourceDirectory' text field is empty.`nPlease select a source directory" -Height 140 -Width 580
+					return "error"
+				}
+			}
+		}
+	}
+
+	function CreateProfileListFile {
+		$ProfileXML = [System.Collections.ArrayList]::new()
+		$SettingParameters = @{
+			ProfileName           = "$($AdvancedMenu_ProfileName_TEXTBOX.Text)"
+			BackupDirectory       = "$($AdvancedMenu_BackupDirectory_TEXTBOX.Text)"
+			Executable_7z         = "$($AdvancedMenu_7zipExecutable_TEXTBOX.Text)"
+			SecondBackupDirectory = "$($AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text)"
+			BackupName            = "$($AdvancedMenu_BackupName_TEXTBOX.Text)"
+			Source                = "$($AdvancedMenu_Source_TEXTBOX.Text)"
+			RestoreDirectory      = "$($AdvancedMenu_RestoreDirectory_TEXTBOX.Text)"
+			RestorePoints         = $($AdvancedMenu_RestorePoints_TEXTBOX.Text)
+			BackupDayFilter       = $($AdvancedMenu_BackupDayFilter_TEXTBOX.Text)
+			BackupCheckboxStatus  = $($AdvancedMenu_Backup_CHECKBOX.Checked)
+			RestoreCheckboxStatus = $($AdvancedMenu_Restore_CHECKBOX.Checked)
+			CopyCheckboxStatus    = $($AdvancedMenu_Copy_CHECKBOX.Checked)
+		}
+		[void]$ProfileXML.Add($(settings @SettingParameters))
+		$ProfileXML | Export-Clixml -Path "${Running_Folder}\ProfileList.xml"
+		ErrorForm -ErrorLabelText "A new profile with name: `"$($AdvancedMenu_ProfileName_TEXTBOX.Text)`" - created."
+		$AdvancedMenu_FORM.Tag = $ProfileXML
+		$AdvancedMenu_FORM.Close()
+	}
+
+	function AdvancedMenuSwitch {
+		function States {
+			param (
+				$FormItems,
+				[bool]$IsEnabled
+			)
+
+			[string]$Color = if ($IsEnabled -eq $true) { 'Window' } else { 'DarkGray' }
+			foreach ($Box in $FormItems) {
+				$Box.Enabled = $IsEnabled
+				if ($box -is [System.Windows.Forms.TextBox]) {
+					$Box.BackColor = $Color
+					switch ($true) {
+						{ $IsEnabled -eq $false } { $Box.Text = '' }
+						{ $IsEnabled -eq $true -and ($Box.Name -eq 'AdvancedMenu_RestorePoints_TEXTBOX' -or $Box.Name -eq 'AdvancedMenu_BackupDayFilter_TEXTBOX') } {
+							$Box.Text = if ([string]::IsNullOrWhiteSpace($Box.Text)) { 1 } else { $Box.Text }
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'AdvancedMenu_7zipExecutable_TEXTBOX' } {
+							$Box.Text = if ([string]::IsNullOrWhiteSpace($Box.Text)) { (Get-Command 7z).Source 2>$null } else { $Box.Text }
+						}
+					}
+				}
+			}
+		}
+
+		States -IsEnabled ($AdvancedMenu_Backup_CHECKBOX.Checked) -FormItems @(
+			$AdvancedMenu_BackupName_TEXTBOX,
+			$AdvancedMenu_RestorePoints_TEXTBOX,
+			$AdvancedMenu_BackupDayFilter_TEXTBOX
+		)
+		States -IsEnabled ($AdvancedMenu_Backup_CHECKBOX.Checked -or $AdvancedMenu_Restore_CHECKBOX.Checked -or $AdvancedMenu_Copy_CHECKBOX.Checked) -FormItems @(
+			$AdvancedMenu_BackupDirectory_TEXTBOX,
+			$AdvancedMenu_BackupDirectory_BUTTON
+		)
+		States -IsEnabled ($AdvancedMenu_Backup_CHECKBOX.Checked -or $AdvancedMenu_Copy_CHECKBOX.Checked) -FormItems @(
+			$AdvancedMenu_SecondBackupDirectory_TEXTBOX,
+			$AdvancedMenu_SecondBackupDirectory_BUTTON,
+			$AdvancedMenu_SecondBackupDirectoryClear_BUTTON,
+			$AdvancedMenu_Source_TEXTBOX,
+			$AdvancedMenu_SourceDirectory_BUTTON,
+			$AdvancedMenu_SourceFile_BUTTON
+		)
+		States -IsEnabled ($AdvancedMenu_Restore_CHECKBOX.Checked) -FormItems @(
+			$AdvancedMenu_RestoreDirectory_TEXTBOX,
+			$AdvancedMenu_RestoreDirectory_BUTTON,
+			$AdvancedMenu_RestoreCopySource_BUTTON
+		)
+		States -IsEnabled ($AdvancedMenu_Backup_CHECKBOX.Checked -or $AdvancedMenu_Restore_CHECKBOX.Checked) -FormItems @(
+			$AdvancedMenu_7zipExecutable_TEXTBOX,
+			$AdvancedMenu_7ZipExecutable_BUTTON
+		)
+	}
+	#FUNCTIONS_ADVANCED_MENU#######################################################################END
+	#FUNCTIONS_PROFILE_MENU########################################################################
+	function ProfileMenuButtonsActive {
+		if ($ProfileMenu_ProfileList_LISTBOX.SelectedItem) {
+			$ProfileMenu_Edit_BUTTON.Enabled = $true
+			$ProfileMenu_Delete_BUTTON.Enabled = $true
 		}
 		else {
-			CheckUpdate
+			$ProfileMenu_Edit_BUTTON.Enabled = $false
+			$ProfileMenu_Delete_BUTTON.Enabled = $false
 		}
-	})
-	#######################################################################################################
-	$BackupButton = New-Object System.Windows.Forms.Button
-	$BackupButton.Location = New-Object System.Drawing.Point(5,50)
-	$BackupButton.Size = New-Object System.Drawing.Size(200,40)
-	$BackupButton.Text = 'Backup menu'
-	$BackupButton.TextAlign = 'MiddleCenter'
-	$BackupButton.Add_Click({
-		BackupMenu
-	})
-	#######################################################################################################
-	$RestoreButton = New-Object System.Windows.Forms.Button
-	$RestoreButton.Location = New-Object System.Drawing.Point(215,50)
-	$RestoreButton.Size = New-Object System.Drawing.Size(200,40)
-	$RestoreButton.Text = 'Restore Menu'
-	$RestoreButton.TextAlign = 'MiddleCenter'
-	$RestoreButton.Add_Click({
-		if ([string]::IsNullOrEmpty($RestoreDirectory)){
-			$Script:ErrorLabelText = "Please fill in the optional field in the settings menu associated with the recovery directory."
-			ErrorForm
-		}
-		else{		
-			RestoreMenu
-		}
-	})
-	#######################################################################################################
-	$OpenBackupFolderButton = New-Object System.Windows.Forms.Button
-	$OpenBackupFolderButton.Location = New-Object System.Drawing.Point(5,95)
-	$OpenBackupFolderButton.Size = New-Object System.Drawing.Size(200,65)
-	$OpenBackupFolderButton.Text = 'Open Backup Folder'
-	$OpenBackupFolderButton.TextAlign = 'MiddleCenter'
-	$OpenBackupFolderButton.Add_Click({
-		Backup_directory
-	})
-	#######################################################################################################
-	$OpenRestoreFolderButton = New-Object System.Windows.Forms.Button
-	$OpenRestoreFolderButton.Location = New-Object System.Drawing.Point(215,95)
-	$OpenRestoreFolderButton.Size = New-Object System.Drawing.Size(200,65)
-	$OpenRestoreFolderButton.Text = 'Open Restore Folder'
-	$OpenRestoreFolderButton.TextAlign = 'MiddleCenter'
-	$OpenRestoreFolderButton.Add_Click({
-		if ([string]::IsNullOrEmpty($RestoreDirectory)){
-			$Script:ErrorLabelText = "Please fill in the optional field in the settings menu associated with the recovery directory."
-			ErrorForm
-		}
-		else{
-			Restore_directory
-		}
-	})
-	#######################################################################################################
-	$AdvancedMenuButton = New-Object System.Windows.Forms.Button
-	$AdvancedMenuButton.Location = New-Object System.Drawing.Point(145,205)
-	$AdvancedMenuButton.Size = New-Object System.Drawing.Size(130,35)
-	$AdvancedMenuButton.Text = 'Settings'
-	$AdvancedMenuButton.TextAlign = 'MiddleCenter'
-	$AdvancedMenuButton.Add_Click({
-		AdvancedMenu
-	})
-	#######################################################################################################
-	$MainMenulabel = New-Object System.Windows.Forms.Label
-	$MainMenulabel.Location = New-Object System.Drawing.Point(5,5)
-	$MainMenulabel.Size = New-Object System.Drawing.Size(410,40)
-	$MainMenulabel.Font = New-Object System.Drawing.Font("Cascadia Mono",12,[System.Drawing.FontStyle]::Regular)
-	$MainMenulabel.TextAlign = 'MiddleCenter'
-	$MainMenulabel.Text = "Welcome to the 'PowerShell 7z Backup and Restore Script'.`nPlease select one of the options below."
-	######################################################################################################
-	$MainMenuForm.AcceptButton = $ExitButton
-	$MainMenuForm.Controls.Add($ExitButton)
-	$MainMenuForm.AcceptButton = $BackupButton
-	$MainMenuForm.Controls.Add($BackupButton)
-	$MainMenuForm.AcceptButton = $RestoreButton
-	$MainMenuForm.Controls.Add($RestoreButton)
-	$MainMenuForm.AcceptButton = $OpenBackupFolderButton
-	$MainMenuForm.Controls.Add($OpenBackupFolderButton)
-	$MainMenuForm.AcceptButton = $OpenRestoreFolderButton
-	$MainMenuForm.Controls.Add($OpenRestoreFolderButton)
-	$MainMenuForm.AcceptButton = $UpdateButton
-	$MainMenuForm.Controls.Add($UpdateButton)
-	$MainMenuForm.AcceptButton = $AdvancedMenuButton
-	$MainMenuForm.Controls.Add($AdvancedMenuButton)
-	$MainMenuForm.Controls.Add($MainMenulabel)
-	
-	#######################################################################################################
-	$Script:MainMenuResult = $MainMenuForm.ShowDialog()
-}
+	}
 
-$Attention='Please run the script at least once and fill in all the mandatory fields.`nAttention, if you corrected the script by hand, then return the value of the NumberOfBackups and BackupDayFilter variables above zero'
+	function ProfileMenuProfileParametersList {
+		$ProfileMenu_ProfileParameterBackup_CHECKBOX.Checked = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)" }).BackupCheckboxStatus)
+		$ProfileMenu_ProfileParameterRestore_CHECKBOX.Checked = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)" }).RestoreCheckboxStatus)
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX.Checked = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)" }).CopyCheckboxStatus)
+		$ProfileMenu_ProfileParameterList_LISTBOX.Items.Clear()
+		$ProfileMenu_ProfileParameterList_LISTBOX.Items.AddRange(@(
+			"Source: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).Source)"	
+			"BackupDirectory: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).BackupDirectory)"
+			"SecondBackupDirectory: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).SecondBackupDirectory)"
+			"RestoreDirectory: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).RestoreDirectory)"
+			"NumberOfBackups: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).RestorePoints)"
+			"BackupDayFilter: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).BackupDayFilter)"
+			"BackupName: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).BackupName)"
+			"7z.exe_PATH: $(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)"}).Executable_7z)"
+		))
+	}
 
-If ([string]::IsNullOrEmpty($AutomationType)){
-	$run='True'
-	while ($run -eq 'True'){
-		if (check_all_params){
-			AdvancedMenu
-			if ($AdvancedMenuResult -eq [System.Windows.Forms.DialogResult]::OK){
-				exit
+	function DeleteProfileGT1 {
+		param (
+			$ProfileXmlObject,
+			[string]$ChosenProfile
+		)
+
+		$ProfileXmlObject.Remove($($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$ChosenProfile" }))
+		ListFiller -ProfileXmlObject $ProfileXmlObject -Menu 'ProfileMenu'
+		ProfileMenuButtonsActive
+		ErrorForm -ErrorLabelText "Profile: `"$ChosenProfile`" - deleted."
+
+		return ,$ProfileXmlObject
+	}
+
+	function DeleteLastProfile {
+		Remove-Item ${Running_Folder}\ProfileList.xml
+		ErrorForm -ErrorLabelText "The last profile has been removed from the list of profiles.`nTo create a new profile, run this script again to create a new list of profiles."
+		$ProfileMenu_FORM.Close()
+		$MainMenu_FORM.Close()
+	}
+	#FUNCTIONS_PROFILE_MENU########################################################################END
+	#FUNCTIONS_LOG_FORM############################################################################
+	function SimpleBackup_Job {
+		param (
+			[string]$Executable_7z,
+			[string]$BackupDirectory,
+			[string]$SecondBackupDirectory,
+			[string]$BackupName,
+			[string]$Source,
+			[decimal]$RestorePoints,
+			$MessageSingleDir = $null,
+			$MessageFirstDir = $null,
+			$MessageSecondDir = $null
+		)
+
+		$Time = (Get-Date -format "dd/MM/yyyy/HH/mm/ss")
+		$7zBackupName = -join ("$BackupDirectory", "$BackupName", '_', "$Time", '.7z')
+		$RobocopyBackupName = -join ("$BackupName", '_', "$Time", '.7z')
+		$SecondBackupDirectoryName = -join ("$SecondBackupDirectory", "$BackupName", '_', "$Time", '.7z')
+
+		if ("$BackupDirectory" -and -not "$SecondBackupDirectory") {
+			$MessageSingleDir.StartMessage
+			check_directories -BackupDirectory "${BackupDirectory}"
+			& "$Executable_7z" a "$7zBackupName" "$Source`*" -bsp1
+			if (-not $?) {
+				Write-Output "ERROR. BACKUP JOB FAILED on item:"
+				Write-Output "$7zBackupName"
+				return
+			}
+			$MessageSingleDir.EndMessage
+		}
+		elseif ("$BackupDirectory" -and "$SecondBackupDirectory") {
+			$MessageFirstDir.StartMessage
+			check_directories -BackupDirectory "${BackupDirectory}" -SecondBackupDirectory "${SecondBackupDirectory}"
+			& "$Executable_7z" a "$7zBackupName" "$Source`*" -bsp1
+			if (-not $?) {
+				Write-Output "ERROR. BACKUP JOB FAILED on item:"
+				Write-Output "$7zBackupName"
+				return
+			}
+			$hash = Get-FileHash "$7zBackupName"
+			$MessageFirstDir.EndMessage
+			$MessageSecondDir.StartMessage
+			Robocopy "$BackupDirectory" "$SecondBackupDirectory" "$RobocopyBackupName" /mt /z /NC /NS /NP
+			$hash2 = Get-FileHash "$SecondBackupDirectoryName"
+			$MessageSecondDir.EndMessage
+			if (-not ($hash.Hash -eq $hash2.hash)) {
+				Write-Output "Something went wrong:`nThe File `'$SecondBackupDirectoryName`' crashed while being copied."
+				Write-Output "Files in the directories: `'${SecondBackupDirectory}`' and `'${BackupDirectory}`' were not deleted after the job was completed. Rotation in the archive directories was not performed."
+				return
+			}
+			Get-ChildItem "$SecondBackupDirectory" -Filter *.7z | Where-Object -FilterScript { $_.Name -match "^${BackupName}_*" } | Sort-Object -Property CreationTime | Select-Object -SkipLast $RestorePoints | Remove-Item
+		}
+		Get-ChildItem -Path "$BackupDirectory" -Filter *.7z | Where-Object { $_.Name -match "^${BackupName}_*" } | Sort-Object -Property CreationTime | Select-Object -SkipLast $RestorePoints | Remove-Item
+	}
+
+	function TimeFilteredBackup_Job {
+		param (
+			[string]$Executable_7z,
+			[string]$BackupDirectory,
+			[string]$SecondBackupDirectory,
+			[string]$BackupName,
+			[string]$Source,
+			[decimal]$RestorePoints,
+			[decimal]$BackupDayFilter,
+			$MessageSingleDir = $null,
+			$MessageFirstDir = $null,
+			$MessageSecondDir = $null
+		)
+
+		$Files = Get-ChildItem $Source | Where-Object { $_.LastWriteTime -gt ((Get-Date).adddays(-$BackupDayFilter)) }
+		$Time = (Get-Date -format "dd/MM/yyyy/HH/mm/ss")
+		$7zBackupName = -join ("$BackupDirectory", "$BackupName", '_', "$Time", '.7z')
+		$RobocopyBackupName = -join ("$BackupName", '_', "$Time", '.7z')
+		$SecondBackupDirectoryName = -join ("$SecondBackupDirectory", "$BackupName", '_', "$Time", '.7z')
+
+		if ($Files.count -eq 0) {
+			Write-Output "There are nothing to backup"
+			return
+		}
+		if ("$BackupDirectory" -and -not "$SecondBackupDirectory") {
+			$MessageSingleDir.StartMessage
+			check_directories -BackupDirectory "${BackupDirectory}"
+			foreach ($file in $Files) {
+				$file_fullname = $file.FullName
+				& "$Executable_7z" a "$7zBackupName" "$file_fullname" -bsp1
+			}
+			$MessageSingleDir.EndMessage
+		}
+		elseif ("$BackupDirectory" -and "$SecondBackupDirectory") {
+			$MessageFirstDir.StartMessage
+			check_directories -BackupDirectory "${BackupDirectory}" -SecondBackupDirectory "${SecondBackupDirectory}"
+			foreach ($file in $Files) {
+				$file_fullname = $file.FullName
+				& "$Executable_7z" a "$7zBackupName" "$file_fullname" -bsp1
+			}
+			$hash = Get-FileHash "$7zBackupName"
+			$MessageFirstDir.EndMessage
+			$MessageSecondDir.StartMessage
+			Robocopy "$BackupDirectory" "$SecondBackupDirectory" "$RobocopyBackupName" /mt /z /NC /NS /NP
+			$hash2 = Get-FileHash "$SecondBackupDirectoryName"
+			$MessageSecondDir.EndMessage
+			if (-not ($hash.Hash -eq $hash2.hash)) {
+				Write-Output "Something went wrong:`nThe File `'$SecondBackupDirectoryName`' crashed while being copied."
+				Write-Output "Files in the directories: `'${SecondBackupDirectory}`' and `'${BackupDirectory}`' were not deleted after the job was completed. Rotation in the archive directories was not performed."
+				return
+			}
+			Get-ChildItem "$SecondBackupDirectory" -Filter *.7z | Where-Object -FilterScript { $_.Name -match "^${BackupName}_*" } | Sort-Object -Property CreationTime | Select-Object -SkipLast $RestorePoints | Remove-Item
+		}
+		Get-ChildItem -Path "$BackupDirectory" -Filter *.7z | Where-Object { $_.Name -match "^${BackupName}_*" } | Sort-Object -Property CreationTime | Select-Object -SkipLast $RestorePoints | Remove-Item
+	}
+
+	function CopyFile_Job {
+		param (
+			[string]$BackupDirectory,
+			[string]$SecondBackupDirectory,
+			[string]$Source,
+			$MessageSingleDir = $null,
+			$MessageFirstDir = $null,
+			$MessageSecondDir = $null
+		)
+
+		$SourceLeaf = Split-Path $Source -Leaf
+		$DestinationFirstDir = -join ("$BackupDirectory", "$SourceLeaf")
+		$DestinationSecondDir = -join ("$SecondBackupDirectory", "$SourceLeaf")
+
+		if ("$BackupDirectory" -and -not "$SecondBackupDirectory") {
+			$MessageSingleDir.StartMessage
+			check_directories -BackupDirectory "${BackupDirectory}"
+			if ($Source[-1] -eq '\') {
+				Robocopy "$($Source.TrimEnd('\'))" "$DestinationFirstDir" /E /mt /z /NC /NS /NP
+			}
+			else {
+				Robocopy "$(Split-Path $Source -Parent)" "$BackupDirectory" "$SourceLeaf" /mt /z /NC /NS /NP
+			}
+			$MessageSingleDir.EndMessage
+		}
+		elseif ($BackupDirectory -and $SecondBackupDirectory) {
+			$MessageFirstDir.StartMessage
+			check_directories -BackupDirectory ${BackupDirectory} -SecondBackupDirectory ${SecondBackupDirectory}
+			if ($Source[-1] -eq '\') {
+				Robocopy "$($Source.TrimEnd('\'))" "$DestinationFirstDir" /E /mt /z /NC /NS /NP
+			}
+			else {
+				Robocopy "$(Split-Path $Source -Parent)" "$BackupDirectory" "$SourceLeaf" /mt /z /NC /NS /NP
+			}
+			$MessageFirstDir.EndMessage
+			$MessageSecondDir.StartMessage
+			if ($Source[-1] -eq '\') {
+				Robocopy "$($Source.TrimEnd('\'))" "$DestinationSecondDir" /E /mt /z /NC /NS /NP
+			}
+			else {
+				Robocopy "$(Split-Path $Source -Parent)" "$SecondBackupDirectory" "$SourceLeaf" /mt /z /NC /NS /NP
+			}
+			$MessageSecondDir.EndMessage
+		}
+	}
+
+	function Sync_Job {
+		param (
+			[string]$BackupDirectory,
+			[string]$SecondBackupDirectory,
+			[string]$Source,
+			$MessageSingleDir = $null,
+			$MessageFirstDir = $null,
+			$MessageSecondDir = $null
+		)
+
+		$SourceLeaf = Split-Path $Source -Leaf
+		$DestinationFirstDir = -join ("$BackupDirectory", "$SourceLeaf")
+		$DestinationSecondDir = -join ("$SecondBackupDirectory", "$SourceLeaf")
+		if ("$BackupDirectory" -and -not "$SecondBackupDirectory") {
+			$MessageSingleDir.StartMessage
+			check_directories -BackupDirectory "${BackupDirectory}"
+			Robocopy "$($Source.TrimEnd('\'))" "$DestinationFirstDir" /MIR /mt /z /NC /NS /NP
+			$MessageSingleDir.EndMessage
+		}
+		elseif ($BackupDirectory -and $SecondBackupDirectory) {
+			$MessageFirstDir.StartMessage
+			check_directories -BackupDirectory ${BackupDirectory} -SecondBackupDirectory ${SecondBackupDirectory}
+			Robocopy "$($Source.TrimEnd('\'))" "$DestinationFirstDir" /MIR /mt /z /NC /NS /NP
+			$MessageFirstDir.EndMessage
+			$MessageSecondDir.StartMessage
+			Robocopy "$($Source.TrimEnd('\'))" "$DestinationSecondDir" /MIR /mt /z /NC /NS /NP
+			$MessageSecondDir.EndMessage
+		}
+	}
+
+	function Restore_Job {
+		param (
+			[string]$SelectedProfile,
+			[string]$Executable_7z,
+			[string]$BackupDirectory,
+			[string]$RestoreDirectory,
+			[string]$SelectedBackup,
+			[bool]$RestoreMenu_CheckBox,
+			$MessageSingleDir = $null,
+			$MessageFirstDir = $null,
+			$MessageSecondDir = $null
+		)
+
+		if ($RestoreDirectory.Length -eq 3 -and $RestoreDirectory -match '^[a-zA-Z]:\\+$') {
+			Write-Output "ERROR. RESTORE JOB FAILED on item:"
+			Write-Output "$RestoreDirectory"
+			Write-Output "The recovery directory cannot be the root of the disk.`n`nBecause during recovery, the program will try to delete all files from the disk root.`n`nPlease create a separate recovery directory at the root of the disk, even if it is the only one on the disk."
+			return
+		}
+		if ($RestoreMenu_CheckBox) {
+			$MessageFirstDir.StartMessage
+			$BackupDirectory_Before_restore = -join ("$BackupDirectory", "Backups_before_restore\")
+			if (Test-Path -Path "$RestoreDirectory") {
+				SimpleBackup_Job -Executable_7z $Executable_7z -BackupDirectory $BackupDirectory_Before_restore -BackupName $SelectedProfile -Source $RestoreDirectory -RestorePoints 3
+			}
+			else {
+				Write-Output "Directory: $RestoreDirectory dose not exist"
+			}
+			if ($LASTEXITCODE -gt 0) {
+				return
+			}
+			$MessageFirstDir.EndMessage
+			$MessageSecondDir.StartMessage
+			if (Test-Path -Path "$RestoreDirectory") {
+				Remove-Item "$RestoreDirectory`*" -Recurse
+			}
+			& "$Executable_7z" x "$SelectedBackup" -o"$RestoreDirectory" -bsp1
+			if (-not $?) {
+				Write-Output "ERROR. RESTORE JOB FAILED on item:"
+				Write-Output "$SelectedBackup"
+				Write-Output "To dir: $RestoreDirectory"
+				return
+			}
+			$MessageSecondDir.EndMessage
+		}
+		else {
+			$MessageSecondDir.StartMessage
+			if (Test-Path -Path "$RestoreDirectory") {
+				Remove-Item "$RestoreDirectory`*" -Recurse
+			}
+			& "$Executable_7z" x "$SelectedBackup" -o"$RestoreDirectory" -bsp1
+			if (-not $?) {
+				Write-Output "ERROR. RESTORE JOB FAILED on item:"
+				Write-Output "$SelectedBackup"
+				Write-Output "To dir: $RestoreDirectory"
+				return
+			}
+			$MessageSecondDir.EndMessage
+		}
+	}
+	#FUNCTIONS_LOG_FORM############################################################################END
+	#FUNCTIONS_BACKUP_MENU#########################################################################
+	function DiskVariablesBackup {
+		param (
+			$ProfileXmlObject,
+			[string]$SelectedProfile
+		)
+
+		$DriveLetter_backups = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).BackupDirectory).split(':')[0]
+		$DriveBackupLeftSpace = ([math]::round((Get-PSDrive $DriveLetter_backups).Free[0] / 1Mb, 3)).ToString("N3")
+		$BackupMenu_SpaceLeftOnDisk_LABEL.Text = "There is $DriveBackupLeftSpace MB of free space left on drive $DriveLetter_backups.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
+		$BackupDrives = @{
+			$DriveLetter_backups = $DriveBackupLeftSpace
+		}
+
+		return $BackupDrives
+	}
+
+	function check_directories {
+		param (
+			$BackupDirectory,
+			$SecondBackupDirectory
+		)
+
+		switch ($true) {
+		(-not [string]::IsNullOrWhiteSpace($BackupDirectory)) {
+				if (-not (Test-Path -Path "$BackupDirectory")) {
+					New-Item -ItemType Directory "$BackupDirectory"
+				}
+			}
+		(-not [string]::IsNullOrWhiteSpace($SecondBackupDirectory)) {
+				if ( -not (Test-Path -Path "$SecondBackupDirectory")) {
+					New-Item -ItemType Directory "$SecondBackupDirectory"
+				}
 			}
 		}
-		else{
-			$run='False'
-		}
 	}
-	$run='True'
-	while ($run -eq 'True'){
-		if ( Test-Path -Path "$7z_directory" ){
-			$run='False'
-		}
-		else{
-			No7zip
-			if ($No7zipResult -eq [System.Windows.Forms.DialogResult]::Ok){
-				Exit
+
+	function BackupMenuButtons {
+		param (
+			$ProfileXmlObject,
+			[String]$SelectedProfile
+		)
+
+		function States {
+			param (
+				$FormItems,
+				[bool]$IsEnabled
+			)
+
+			foreach ($Box in $FormItems) {
+				$Box.Enabled = $IsEnabled
+				if ($box -is [System.Windows.Forms.TextBox]) {
+					switch ($true) {
+						{ $IsEnabled -eq $false -and ($Box.Name -eq 'BackupMenu_SimpleBackupCMDString_TEXTBOX' -or $Box.Name -eq 'BackupMenu_TimeFiltredBackupCMDString_TEXTBOX') } {
+							$Box.Text = 'The Backup checkbox for this profile is disabled'
+						}
+						{ $IsEnabled -eq $false -and ($Box.Name -eq 'BackupMenu_SimpleCopyCMDString_TEXTBOX' -or $Box.Name -eq 'BackupMenu_SyncCMDString_TEXTBOX') } {
+							$Box.Text = 'The Copy checkbox for this profile is disabled'
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'BackupMenu_SimpleBackupCMDString_TEXTBOX' } {
+							$Box.Text = "powershell -file `"$Path_to_Script`" -AutomationType SimpleBackup -ProfileName `"$($SelectedProfile)`""
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'BackupMenu_TimeFiltredBackupCMDString_TEXTBOX' } {
+							$Box.Text = "powershell -file `"$Path_to_Script`" -AutomationType TimeFilteredBackup -ProfileName `"$($SelectedProfile)`""
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'BackupMenu_SimpleCopyCMDString_TEXTBOX' } {
+							$Box.Text = "powershell -file `"$Path_to_Script`" -AutomationType Copy -ProfileName `"$($SelectedProfile)`""
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'BackupMenu_SyncCMDString_TEXTBOX' } {
+							$Box.Text = "powershell -file `"$Path_to_Script`" -AutomationType Sync -ProfileName `"$($SelectedProfile)`""
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'BackupMenu_Source_TEXTBOX' } {
+							$Box.Text = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Source)"
+							if ($Box.Text[-1] -ne '\') {
+								$BackupMenu_Sync_BUTTON.Enabled = $false
+								$BackupMenu_SyncCMDString_TEXTBOX.Text = 'The synchronization task is available only for directories.'
+								$BackupMenu_SyncCMDString_TEXTBOX.Enabled = $false
+								$BackupMenu_SyncCMDStringClipboard_BUTTON.Enabled = $false
+							}
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'BackupMenu_FirstDestination_TEXTBOX' } {
+							$Box.Text = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupDirectory)"
+						}
+						{ $IsEnabled -eq $true -and $Box.Name -eq 'BackupMenu_SecondDestination_TEXTBOX' } {
+							if ( [string]::IsNullOrWhiteSpace("$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).SecondBackupDirectory)")) {
+								$Box.Text = "Second Backup folder is not set"
+								$Box.Enabled = $false
+								$BackupMenu_SecondDestination_BUTTON.Enabled = $false
+							}
+							else {
+								$Box.Text = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).SecondBackupDirectory)"
+								$Box.Enabled = $True
+								$BackupMenu_SecondDestination_BUTTON.Enabled = $True
+							}
+						}
+					}
+				}
 			}
 		}
-	}
 	
-	MainMenu
+		$BackupCheckbox = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).BackupCheckboxStatus
+		$CopyCheckBox = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).CopyCheckboxStatus
+		States -IsEnabled ($BackupCheckbox) -FormItems @(
+			$BackupMenu_SimpleBackup_BUTTON,
+			$BackupMenu_TimeFiltredBackup_BUTTON,
+			$BackupMenu_SimpleBackupCMDString_TEXTBOX,
+			$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX,
+			$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON,
+			$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON
+		)
+		States -IsEnabled ($CopyCheckBox) -FormItems @(
+			$BackupMenu_SimpleCopy_BUTTON,
+			$BackupMenu_Sync_BUTTON,
+			$BackupMenu_SimpleCopyCMDString_TEXTBOX,
+			$BackupMenu_SyncCMDString_TEXTBOX,
+			$BackupMenu_SyncCMDStringClipboard_BUTTON,
+			$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON
+		)
+		States -IsEnabled ($CopyCheckBox -or $BackupCheckbox) -FormItems @(
+			$BackupMenu_Source_BUTTON,
+			$BackupMenu_Source_TEXTBOX,
+			$BackupMenu_FirstDestination_BUTTON,
+			$BackupMenu_FirstDestination_TEXTBOX,
+			$BackupMenu_SecondDestination_TEXTBOX
+		)
+	}
+	#FUNCTIONS_BACKUP_MENU##########################################################################END
+	#FUNCTIONS_RESTORE_MENU#########################################################################
+	function DiskVariablesRestore {
+		param (
+			$ProfileXmlObject,
+			[string]$SelectedProfile
+		)
+
+		$DriveLetter_restore = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).RestoreDirectory).split(':')[0]
+		$DriveRestoreLeftSpace = ([math]::round((Get-PSDrive $DriveLetter_restore).Free[0] / 1Mb, 3)).ToString("N3")
+		$RestoreMenu_SpaceLeftOnDisk_LABEL.Text = "There is $DriveRestoreLeftSpace MB of free space left on drive $DriveLetter_restore."
+		$RestoreDrives = @{
+			$DriveLetter_restore = $DriveRestoreLeftSpace
+		}
+	
+		return $RestoreDrives
+	}
+	function RestoreMenuButtons {
+		param (
+			$ProfileXmlObject,
+			[String]$SelectedProfile
+		)
+
+		function States {
+			param (
+				$FormItems,
+				[bool]$IsEnabled
+			)
+
+			foreach ($box in $FormItems) {
+				$Box.Enabled = $IsEnabled
+				if ($box -is [System.Windows.Forms.TextBox]) {
+					switch ($true) {
+						{ $box.name -eq 'RestoreMenu_DestinationRestoreDirectory_TEXTBOX' } {
+							$box.text = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).RestoreDirectory
+						}
+						{ $box.name -eq 'RestoreMenu_SourceBackupDirectory_TEXTBOX' } {
+							$box.text = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).BackupDirectory
+						}
+					}
+				}
+			}
+		}
+	
+		$BackupCheckboxStatus = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).BackupCheckboxStatus
+		$RestoreCheckboxStatus = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).RestoreCheckboxStatus
+		$CopyCheckboxStatus = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).CopyCheckboxStatus
+		$BackupDirectory = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).BackupDirectory
+		$BackupName = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).BackupName
+	
+		if (-not $BackupCheckboxStatus -and -not $CopyCheckboxStatus -and $RestoreCheckboxStatus) {
+			$BackupAfterDisasterDirectory = -join ($BackupDirectory, "Backups_before_restore\")
+			$BackupDirectoryArchives = $BackupDirectory
+		}
+		else {
+			$BackupAfterDisasterDirectory = -join ($BackupDirectory, "Backups_before_restore\", $SelectedProfile)
+			$BackupDirectoryArchives = -join ($BackupDirectory, $BackupName)
+		}
+		States -IsEnabled (-not ([string]::IsNullOrWhiteSpace($SelectedProfile)) -and (Test-Path $BackupDirectoryArchives*) ) -FormItems @(
+			$RestoreMenu_ClassicRestore_BUTTON,
+			$RestoreMenu_SourceBackupDirectory_BUTTON,
+			$RestoreMenu_DestinationRestoreDirectory_BUTTON,
+			$RestoreMenu_DestinationRestoreDirectory_TEXTBOX,
+			$RestoreMenu_SourceBackupDirectory_TEXTBOX
+		)
+		States -IsEnabled (Test-Path $BackupAfterDisasterDirectory*) -FormItems @(
+			$RestoreMenu_RestoreAfterDisaster_BUTTON
+		)
+	}
+	#FUNCTIONS_RESTORE_MENU#########################################################################END
+	#FUNCTIONS_MAIN_MENU############################################################################
+	function CheckUpdate {
+		ping github.com -n 1 > $null
+		if ($LASTEXITCODE -ne 0){
+			$MainMenu_Update_BUTTON.Text = 'Cannot connect to GITHUB'
+			return
+		}
+		$GitScriptBody = (Invoke-WebRequest https://github.com/AlexJBFirst/PowerShell_7z_Backup-and-Restore/raw/main/PowerShell-7zBackup_and_Restore.ps1).content -split "`r`n"
+		$ScriptVersionScript = $ScriptVersion
+		$MatchedVersion = ($GitScriptBody -split "`n" | Where-Object {$_ -match 'System.Version'})
+		if ([string]::IsNullOrWhiteSpace($MatchedVersion)){
+			$MainMenu_Update_BUTTON.Text = 'Nothing to update'
+			$MainMenu_Update_BUTTON.Enabled = $false
+			return
+		}
+		Invoke-Expression $MatchedVersion
+		if ( $ScriptVersionScript -ge $ScriptVersion ) {
+			$MainMenu_Update_BUTTON.Text = 'Nothing to update'
+			$MainMenu_Update_BUTTON.Enabled = $false
+		} 
+		else {
+			$MainMenu_Update_BUTTON.Text = 'Do you want to update the script?'
+			[bool]$ScriptUpdate = $true
+		}
+		$CheckUpdateResult = @{
+			ScriptUpdate = $ScriptUpdate
+			GitScriptBody = $GitScriptBody
+		}
+		return $CheckUpdateResult
+	}
+
+	function UpdateScript {
+		param (
+			$ScriptPath,
+			$GitScriptBody
+		)
+		ping github.com -n 1 > $null
+		if ($LASTEXITCODE -ne 0){
+			$MainMenu_Update_BUTTON.Text = 'Cannot connect to GITHUB'
+			return
+		}
+		Set-Content -Path "$ScriptPath" -Value "$GitScriptBody"
+		ErrorForm -ErrorLabelText "Script Updated, exiting... Please restart the Script"
+		$MainMenu_FORM.Close()
+	}
+	#FUNCTIONS_MAIN_MENU#############################################################################END
+	#FUNCTIONS_FORMS#################################################################################
+	function LogForm {
+		param (
+			$ProfileXmlObject,
+			[string]$LogFormJob,
+			$SelectedProfile,
+			$SelectedBackup
+		)
+
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$Log_FORM = New-Object System.Windows.Forms.Form
+		$Log_FORM.Text = $FormsVariables.FormsText
+		$Log_FORM.Font = $FormsVariables.FormsFont
+		$Log_FORM.BackColor = $FormsVariables.FormsBackColor
+		$Log_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$Log_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$Log_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$Log_FORM.ClientSize = New-Object System.Drawing.Size(700, 600)
+		#######################################################################################################
+		$Log_LABEL = New-Object System.Windows.Forms.Label
+		$Log_LABEL.Location = New-Object System.Drawing.Point(10, 10)
+		$Log_LABEL.Size = New-Object System.Drawing.Size(680, 30)
+		$Log_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 20, [System.Drawing.FontStyle]::Regular)
+		$Log_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$Log_LABEL.Text = "Operational Log"
+		$Log_FORM.Controls.Add($Log_LABEL)
+		#######################################################################################################
+		$Log_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$Log_TEXTBOX.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$Log_TEXTBOX.Location = New-Object System.Drawing.Point(10, 45)
+		$Log_TEXTBOX.Size = New-Object System.Drawing.Size(680, 500)
+		$Log_TEXTBOX.Multiline = $true
+		$Log_TEXTBOX.ReadOnly = $true
+		$Log_TEXTBOX.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
+		$Log_TEXTBOX.Text = ''
+		$Log_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$Log_FORM.Controls.Add($Log_TEXTBOX)
+		#######################################################################################################
+		$Log_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$Log_Exit_BUTTON.Location = New-Object System.Drawing.Point(300, 550)
+		$Log_Exit_BUTTON.Size = New-Object System.Drawing.Size(100, 40)
+		$Log_Exit_BUTTON.Text = "Ok"
+		$Log_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$Log_Exit_BUTTON.UseVisualStyleBackColor = $true
+		$Log_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$Log_FORM.AcceptButton = $Log_Exit_BUTTON
+		$Log_FORM.Controls.Add($Log_Exit_BUTTON)
+		#######################################################################################################
+		$Log_FORM.add_Shown({
+			Switch ($LogFormJob) {
+				"SimpleBackup_Job" {
+					$Log_Exit_BUTTON.Enabled = $false
+					$Job_Parameters = @{
+						Executable_7z              = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Executable_7z)"
+						BackupDirectory            = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupDirectory)"
+						SecondBackupDirectory      = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).SecondBackupDirectory)"
+						BackupName                 = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupName)"
+						Source                     = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Source)"
+						RestorePoints              = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).RestorePoints)
+						MessageSingleDir           = $(TextFiller -JobStartingMessage ' Archiving JOB Started ' -JobEndingMessage ' Archiving JOB Finished ')
+						MessageFirstDir            = $(TextFiller -JobStartingMessage ' Archiving JOB to the First Directory Started ' -JobEndingMessage ' First Archiving JOB Finished ')
+						MessageSecondDir           = $(TextFiller -JobStartingMessage ' Archiving JOB to the Second Directory Started ' -JobEndingMessage ' Second Archiving JOB Finished ')
+						Function_SimpleBackup_Job  = "function SimpleBackup_Job {`n$($Function:SimpleBackup_Job.ToString())`n}"
+						Function_check_directories = "function check_directories {`n$($Function:check_directories.ToString())`n}"
+					}
+					$StartTime = Get-Date
+					$job = Start-Job -ArgumentList @(
+						$Job_Parameters.Executable_7z,
+						$Job_Parameters.BackupDirectory,
+						$Job_Parameters.SecondBackupDirectory,
+						$Job_Parameters.BackupName,
+						$Job_Parameters.Source,
+						$Job_Parameters.RestorePoints,
+						$Job_Parameters.MessageSingleDir,
+						$Job_Parameters.MessageFirstDir,
+						$Job_Parameters.MessageSecondDir,
+						$Job_Parameters.Function_SimpleBackup_Job,
+						$Job_Parameters.Function_check_directories
+					) -ScriptBlock {
+						param (
+							$Executable_7z,
+							$BackupDirectory,
+							$SecondBackupDirectory,
+							$BackupName,
+							$Source,
+							$RestorePoints,
+							$MessageSingleDir,
+							$MessageFirstDir,
+							$MessageSecondDir,
+							$Function_SimpleBackup_Job,
+							$Function_check_directories
+						)
+						Invoke-Expression $Function_SimpleBackup_Job
+						Invoke-Expression $Function_check_directories
+						SimpleBackup_Job -Executable_7z $Executable_7z -BackupDirectory $BackupDirectory -SecondBackupDirectory $SecondBackupDirectory -BackupName $BackupName -Source $Source -RestorePoints $RestorePoints -MessageSingleDir $MessageSingleDir -MessageFirstDir $MessageFirstDir -MessageSecondDir $MessageSecondDir | Out-String -Stream | ForEach-Object {
+							$RCOUT = $_.Trim() + "`r`n"
+							switch ($true) {
+								($RCOUT -cmatch "^ROBOCOPY") { $RCOUT -Replace ('(\s+)', ' ') }
+								($RCOUT -cmatch "^Started|^Source|^Dest|^Files|^Options") { $RCOUT -Replace ('( : )', "`t: ") }
+								($RCOUT -cmatch '^Total') { $RCOUT -replace '^Total', "`t      Total" }
+								($RCOUT -cmatch "^Dirs|^Bytes|^Times") { $RCOUT -replace ' : ', "`t: " }
+								($RCOUT -cmatch "^Ended") { $RCOUT -replace ' :\s+', "`t:   " } 
+								($RCOUT -cmatch "^Speed") { $RCOUT -replace ' :\s+', "`t:   " } 
+								Default { $RCOUT }
+							}
+						}
+					}
+					while (-not ($Job.State -match "Completed|Failed|Stopped")) {
+						Start-Sleep -Milliseconds 200
+						Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+						[System.Windows.Forms.Application]::DoEvents()
+					}
+					Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+					Remove-Job -Job $job
+					$EndTime = Get-Date
+					$Log_TEXTBOX.AppendText("Elapsed Time: $(($EndTime - $StartTime).TotalSeconds) seconds")
+					$Log_Exit_BUTTON.Enabled = $true
+				}
+				"TimeFilteredBackup_Job" {
+					$Log_Exit_BUTTON.Enabled = $false
+					$Job_Parameters = @{
+						Executable_7z                   = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Executable_7z)"
+						BackupDirectory                 = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupDirectory)"
+						SecondBackupDirectory           = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).SecondBackupDirectory)"
+						BackupName                      = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupName)"
+						Source                          = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Source)"
+						RestorePoints                   = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).RestorePoints)
+						BackupDayFilter                 = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$SelectedProfile" }).BackupDayFilter)
+						MessageSingleDir                = $(TextFiller -JobStartingMessage ' Time Filtered Archiving JOB Started ' -JobEndingMessage ' Time Filtered Archiving JOB Finished ')
+						MessageFirstDir                 = $(TextFiller -JobStartingMessage ' Time Filtered Archiving JOB to the First Directory Started ' -JobEndingMessage ' First Time Filtered Archiving JOB Finished ')
+						MessageSecondDir                = $(TextFiller -JobStartingMessage ' Time Filtered Archiving JOB to the Second Directory Started ' -JobEndingMessage ' Second Time Filtered Archiving JOB Finished ')
+						Function_TimeFilteredBackup_Job = "function TimeFilteredBackup_Job {`n$($Function:TimeFilteredBackup_Job.ToString())`n}"
+						Function_check_directories      = "function check_directories {`n$($Function:check_directories.ToString())`n}"
+					}
+					$StartTime = Get-Date
+					$job = Start-Job -ArgumentList @(
+						$Job_Parameters.Executable_7z,
+						$Job_Parameters.BackupDirectory,
+						$Job_Parameters.SecondBackupDirectory,
+						$Job_Parameters.BackupName,
+						$Job_Parameters.Source,
+						$Job_Parameters.RestorePoints,
+						$Job_Parameters.BackupDayFilter,
+						$Job_Parameters.MessageSingleDir,
+						$Job_Parameters.MessageFirstDir,
+						$Job_Parameters.MessageSecondDir,
+						$Job_Parameters.Function_TimeFilteredBackup_Job,
+						$Job_Parameters.Function_check_directories
+					) -ScriptBlock {
+						param (
+							$Executable_7z,
+							$BackupDirectory,
+							$SecondBackupDirectory,
+							$BackupName,
+							$Source,
+							$RestorePoints,
+							$BackupDayFilter,
+							$MessageSingleDir,
+							$MessageFirstDir,
+							$MessageSecondDir,
+							$Function_TimeFilteredBackup_Job,
+							$Function_check_directories
+						)
+						Invoke-Expression $Function_TimeFilteredBackup_Job
+						Invoke-Expression $Function_check_directories
+						TimeFilteredBackup_Job -Executable_7z $Executable_7z -BackupDirectory $BackupDirectory -SecondBackupDirectory $SecondBackupDirectory -BackupName $BackupName -Source $Source -RestorePoints $RestorePoints -BackupDayFilter $BackupDayFilter -MessageSingleDir $MessageSingleDir -MessageFirstDir $MessageFirstDir -MessageSecondDir $MessageSecondDir | Out-String -Stream | ForEach-Object {
+							$RCOUT = $_.Trim() + "`r`n"
+							switch ($true) {
+								($RCOUT -cmatch "^ROBOCOPY") { $RCOUT -Replace ('(\s+)', ' ') }
+								($RCOUT -cmatch "^Started|^Source|^Dest|^Files|^Options") { $RCOUT -Replace ('( : )', "`t: ") }
+								($RCOUT -cmatch '^Total') { $RCOUT -replace '^Total', "`t      Total" }
+								($RCOUT -cmatch "^Dirs|^Bytes|^Times") { $RCOUT -replace ' : ', "`t: " }
+								($RCOUT -cmatch "^Ended") { $RCOUT -replace ' :\s+', "`t:   " } 
+								($RCOUT -cmatch "^Speed") { $RCOUT -replace ' :\s+', "`t:   " } 
+								Default { $RCOUT }
+							}
+						}
+					}
+
+					while (-not ($Job.State -match "Completed|Failed|Stopped")) {
+						Start-Sleep -Milliseconds 200
+						Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+						[System.Windows.Forms.Application]::DoEvents()
+					}
+			
+					Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+					Remove-Job -Job $job
+					$EndTime = Get-Date
+					$Log_TEXTBOX.AppendText("Elapsed Time: $(($EndTime - $StartTime).TotalSeconds) seconds")
+					$Log_Exit_BUTTON.Enabled = $true
+				}
+				"CopyFile_Job" {
+					$Log_Exit_BUTTON.Enabled = $false
+					$Job_Parameters = @{
+						BackupDirectory            = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupDirectory)"
+						SecondBackupDirectory      = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).SecondBackupDirectory)"
+						Source                     = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Source)"
+						MessageSingleDir           = $(TextFiller -JobStartingMessage ' Copy JOB Started ' -JobEndingMessage ' Copy JOB Finished ')
+						MessageFirstDir            = $(TextFiller -JobStartingMessage ' Copy JOB to the First Folder Started ' -JobEndingMessage ' First Copy JOB Finished ')
+						MessageSecondDir           = $(TextFiller -JobStartingMessage ' Copy JOB to the Second Folder Started ' -JobEndingMessage ' Second Copy JOB Finished ')
+						Function_CopyFile_Job      = "function CopyFile_Job {`n$($Function:CopyFile_Job.ToString())`n}"
+						Function_check_directories = "function check_directories {`n$($Function:check_directories.ToString())`n}"
+					}
+					$StartTime = Get-Date
+					$job = Start-Job -ArgumentList @(
+						$Job_Parameters.BackupDirectory,
+						$Job_Parameters.SecondBackupDirectory,
+						$Job_Parameters.Source,
+						$Job_Parameters.MessageSingleDir,
+						$Job_Parameters.MessageFirstDir,
+						$Job_Parameters.MessageSecondDir,
+						$Job_Parameters.Function_CopyFile_Job,
+						$Job_Parameters.Function_check_directories
+					) -ScriptBlock {
+						param (
+							$BackupDirectory,
+							$SecondBackupDirectory,
+							$Source,
+							$MessageSingleDir,
+							$MessageFirstDir,
+							$MessageSecondDir,
+							$Function_CopyFile_Job,
+							$Function_check_directories
+						)
+						Invoke-Expression $Function_CopyFile_Job
+						Invoke-Expression $Function_check_directories
+						CopyFile_Job -BackupDirectory $BackupDirectory -SecondBackupDirectory $SecondBackupDirectory -Source $Source -MessageSingleDir $MessageSingleDir -MessageFirstDir $MessageFirstDir -MessageSecondDir $MessageSecondDir | Out-String -Stream | ForEach-Object {
+							$RCOUT = $_.Trim() + "`r`n"
+							switch ($true) {
+								($RCOUT -cmatch "^ROBOCOPY") { $RCOUT -Replace ('(\s+)', ' ') }
+								($RCOUT -cmatch "^Started|^Source|^Dest|^Files|^Options") { $RCOUT -Replace ('( : )', "`t: ") }
+								($RCOUT -cmatch '^Total') { $RCOUT -replace '^Total', "`t      Total" }
+								($RCOUT -cmatch "^Dirs|^Bytes|^Times") { $RCOUT -replace ' : ', "`t: " }
+								($RCOUT -cmatch "^Ended") { $RCOUT -replace ' :\s+', "`t:   " } 
+								($RCOUT -cmatch "^Speed") { $RCOUT -replace ' :\s+', "`t:   " } 
+								Default { $RCOUT }
+							}
+						}
+					}
+
+					while (-not ($Job.State -match "Completed|Failed|Stopped")) {
+						Start-Sleep -Milliseconds 200
+						Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+						[System.Windows.Forms.Application]::DoEvents()
+					}
+			
+					Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+					Remove-Job -Job $job
+					$EndTime = Get-Date
+					$Log_TEXTBOX.AppendText("Elapsed Time: $(($EndTime - $StartTime).TotalSeconds) seconds")
+					$Log_Exit_BUTTON.Enabled = $true
+				}
+				"Sync_Job" {
+					$Log_Exit_BUTTON.Enabled = $false
+					$Job_Parameters = @{
+						BackupDirectory            = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupDirectory)"
+						SecondBackupDirectory      = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).SecondBackupDirectory)"
+						Source                     = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Source)"
+						MessageSingleDir           = $(TextFiller -JobStartingMessage ' Sync Copy JOB Started ' -JobEndingMessage ' Sync JOB Finished ')
+						MessageFirstDir            = $(TextFiller -JobStartingMessage ' Sync JOB to the First Folder Started ' -JobEndingMessage ' First Sync JOB Finished ')
+						MessageSecondDir           = $(TextFiller -JobStartingMessage ' Sync JOB to the Second Folder Started ' -JobEndingMessage ' Second Sync JOB Finished ')
+						Function_Sync_Job          = "function Sync_Job {`n$($Function:Sync_Job.ToString())`n}"
+						Function_check_directories = "function check_directories {`n$($Function:check_directories.ToString())`n}"
+					}
+					$StartTime = Get-Date
+					$job = Start-Job -ArgumentList @(
+						$Job_Parameters.BackupDirectory,
+						$Job_Parameters.SecondBackupDirectory,
+						$Job_Parameters.Source,
+						$Job_Parameters.MessageSingleDir,
+						$Job_Parameters.MessageFirstDir,
+						$Job_Parameters.MessageSecondDir,
+						$Job_Parameters.Function_Sync_Job,
+						$Job_Parameters.Function_check_directories
+					) -ScriptBlock {
+						param (
+							$BackupDirectory,
+							$SecondBackupDirectory,
+							$Source,
+							$MessageSingleDir,
+							$MessageFirstDir,
+							$MessageSecondDir,
+							$Function_Sync_Job,
+							$Function_check_directories
+						)
+						Invoke-Expression $Function_Sync_Job
+						Invoke-Expression $Function_check_directories
+						Sync_Job -BackupDirectory $BackupDirectory -SecondBackupDirectory $SecondBackupDirectory -Source $Source -MessageSingleDir $MessageSingleDir -MessageFirstDir $MessageFirstDir -MessageSecondDir $MessageSecondDir | Out-String -Stream | ForEach-Object {
+							$RCOUT = $_.Trim() + "`r`n"
+							switch ($true) {
+								($RCOUT -cmatch "^ROBOCOPY") { $RCOUT -Replace ('(\s+)', ' ') }
+								($RCOUT -cmatch "^Started|^Source|^Dest|^Files|^Options") { $RCOUT -Replace ('( : )', "`t: ") }
+								($RCOUT -cmatch '^Total') { $RCOUT -replace '^Total', "`t      Total" }
+								($RCOUT -cmatch "^Dirs|^Bytes|^Times") { $RCOUT -replace ' : ', "`t: " }
+								($RCOUT -cmatch "^Ended") { $RCOUT -replace ' :\s+', "`t:   " } 
+								($RCOUT -cmatch "^Speed") { $RCOUT -replace ' :\s+', "`t:   " } 
+								Default { $RCOUT }
+							}
+						}
+					}
+					while (-not ($Job.State -match "Completed|Failed|Stopped")) {
+						Start-Sleep -Milliseconds 200
+						Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+						[System.Windows.Forms.Application]::DoEvents()
+					}
+					Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+					Remove-Job -Job $job
+					$EndTime = Get-Date
+					$Log_TEXTBOX.AppendText("Elapsed Time: $(($EndTime - $StartTime).TotalSeconds) seconds")
+					$Log_Exit_BUTTON.Enabled = $true
+				}
+				"Restore_Job" {
+					$Log_Exit_BUTTON.Enabled = $false
+					$Job_Parameters = @{
+						SelectedProfile            = $SelectedProfile
+						Executable_7z              = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).Executable_7z)"
+						BackupDirectory            = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).BackupDirectory)"
+						RestoreDirectory           = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$SelectedProfile"}).RestoreDirectory)"
+						RestoreMenu_CheckBox       = $RestoreMenu_CheckBox_CHECKBOX.Checked
+						SelectedBackup             = $SelectedBackup
+						MessageFirstDir            = $(TextFiller -JobStartingMessage ' Backup Before Restoring JOB Started ' -JobEndingMessage ' Backup Before Restoring JOB Finished ')
+						MessageSecondDir           = $(TextFiller -JobStartingMessage ' Restoring JOB Started ' -JobEndingMessage ' Restoring JOB Finished ')
+						Function_Restore_Job       = "function Restore_Job {`n$($Function:Restore_Job.ToString())`n}"
+						Function_check_directories = "function check_directories {`n$($Function:check_directories.ToString())`n}"
+						Function_SimpleBackup_Job  = "function SimpleBackup_Job {`n$($Function:SimpleBackup_Job.ToString())`n}"
+					}
+					$StartTime = Get-Date
+					$job = Start-Job -ArgumentList @(
+						$Job_Parameters.SelectedProfile,
+						$Job_Parameters.Executable_7z,
+						$Job_Parameters.BackupDirectory,
+						$Job_Parameters.RestoreDirectory,
+						$Job_Parameters.RestoreMenu_CheckBox,
+						$Job_Parameters.SelectedBackup,
+						$Job_Parameters.MessageFirstDir,
+						$Job_Parameters.MessageSecondDir,
+						$Job_Parameters.Function_Restore_Job,
+						$Job_Parameters.Function_check_directories,
+						$Job_Parameters.Function_SimpleBackup_Job
+					) -ScriptBlock {
+						param (
+							$SelectedProfile,
+							$Executable_7z,
+							$BackupDirectory,
+							$RestoreDirectory,
+							$RestoreMenu_CheckBox,
+							$SelectedBackup,
+							$MessageFirstDir,
+							$MessageSecondDir,
+							$Function_Restore_Job,
+							$Function_check_directories,
+							$Function_SimpleBackup_Job
+						)
+						Invoke-Expression $Function_Restore_Job
+						Invoke-Expression $Function_check_directories
+						Invoke-Expression $Function_SimpleBackup_Job
+						Restore_Job -SelectedProfile $SelectedProfile -Executable_7z $Executable_7z -BackupDirectory $BackupDirectory -RestoreDirectory $RestoreDirectory -RestoreMenu_CheckBox $RestoreMenu_CheckBox -SelectedBackup $SelectedBackup -MessageFirstDir $MessageFirstDir -MessageSecondDir $MessageSecondDir | Out-String -Stream | ForEach-Object {
+							$RCOUT = $_.Trim() + "`r`n"
+							switch ($true) {
+								($RCOUT -cmatch "^ROBOCOPY") { $RCOUT -Replace ('(\s+)', ' ') }
+								($RCOUT -cmatch "^Started|^Source|^Dest|^Files|^Options") { $RCOUT -Replace ('( : )', "`t: ") }
+								($RCOUT -cmatch '^Total') { $RCOUT -replace '^Total', "`t      Total" }
+								($RCOUT -cmatch "^Dirs|^Bytes|^Times") { $RCOUT -replace ' : ', "`t: " }
+								($RCOUT -cmatch "^Ended") { $RCOUT -replace ' :\s+', "`t:   " } 
+								($RCOUT -cmatch "^Speed") { $RCOUT -replace ' :\s+', "`t:   " } 
+								Default { $RCOUT }
+							}
+						}
+					}
+					while (-not ($job.State -match "Completed|Failed|Stopped")) {
+						Start-Sleep -Milliseconds 200
+						Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+						[System.Windows.Forms.Application]::DoEvents()
+					}
+					Receive-Job -Job $job | ForEach-Object { $Log_TEXTBOX.AppendText("$_") }
+					Remove-Job -Job $job
+					$EndTime = Get-Date
+					$Log_TEXTBOX.AppendText("Elapsed Time: $(($EndTime - $StartTime).TotalSeconds) seconds")
+					$Log_Exit_BUTTON.Enabled = $true
+				}
+			}
+		})
+		$Log_FORM.ShowDialog() > $null
+	}
+
+	function ErrorForm {
+		param (
+			[string]$ErrorLabelText,
+			[Parameter(HelpMessage = 'Default Value is: 140')][decimal]$Height = 140,
+			[Parameter(HelpMessage = 'Default Value is: 500')][decimal]$Width = 500
+		)
+
+		[decimal]$FormHeight = $Height
+		[decimal]$FormWidth = $Width
+		[decimal]$LabelHeight = $Height - 60
+		[decimal]$LabelWidth = $Width - 20
+		[decimal]$MainMenu_Exit_BUTTONDrPointX = ($Width - 120) * 0.5
+		[decimal]$MainMenu_Exit_BUTTONDrPointY = 15 + $LabelHeight
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$Error_FORM = New-Object System.Windows.Forms.Form
+		$Error_FORM.Text = $FormsVariables.FormsText
+		$Error_FORM.Font = $FormsVariables.FormsFont
+		$Error_FORM.BackColor = $FormsVariables.FormsBackColor
+		$Error_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$Error_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$Error_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$Error_FORM.ClientSize = New-Object System.Drawing.Size($FormWidth, $FormHeight)
+		#######################################################################################################
+		$Error_LABEL = New-Object System.Windows.Forms.Label
+		$Error_LABEL.Location = New-Object System.Drawing.Point(10, 10)
+		$Error_LABEL.Size = New-Object System.Drawing.Size($LabelWidth, $LabelHeight)
+		$Error_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$Error_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$Error_LABEL.Text = "$ErrorLabelText"
+		$Error_FORM.Controls.Add($Error_LABEL)
+		#######################################################################################################
+		$Error_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$Error_Exit_BUTTON.Location = New-Object System.Drawing.Point($MainMenu_Exit_BUTTONDrPointX, $MainMenu_Exit_BUTTONDrPointY)
+		$Error_Exit_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$Error_Exit_BUTTON.Text = 'Exit'
+		$Error_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$Error_Exit_BUTTON.Add_Click({
+				$Error_FORM.Close()
+			})
+		$Error_FORM.Controls.Add($Error_Exit_BUTTON)
+		$Error_FORM.AcceptButton = $Error_Exit_BUTTON
+		#######################################################################################################
+		[void]$Error_FORM.ShowDialog()
+	}
+
+	function No7zip {
+		param (
+			$ProfileXmlObject,
+			$Profile7zExecCheck
+		)
+
+		$FormsVariables = FormsVariables
+		$Exec7z = (Get-Command 7z).Source 2>$null
+		#######################################################################################################
+		$No7zip_FORM = New-Object System.Windows.Forms.Form
+		$No7zip_FORM.Text = $FormsVariables.FormsText
+		$No7zip_FORM.Font = $FormsVariables.FormsFont
+		$No7zip_FORM.BackColor = $FormsVariables.FormsBackColor
+		$No7zip_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$No7zip_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$No7zip_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$No7zip_FORM.ClientSize = New-Object System.Drawing.Size(620, 215)
+		#######################################################################################################
+		$No7zip_LABEL = New-Object System.Windows.Forms.Label
+		$No7zip_LABEL.Location = New-Object System.Drawing.Point(10, 10)
+		$No7zip_LABEL.Size = New-Object System.Drawing.Size(600, 120)
+		$No7zip_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$No7zip_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$No7zip_LABEL.Text = "When reading profiles, the directory with the executable file 7z.exe is no longer valid.`nEither the 7zip program has been removed from the PC or the directory where the executable file is located has changed.`nSpecify a new directory with the executable file, or reinstall the 7zip program."
+		$No7zip_FORM.Controls.Add($No7zip_LABEL)
+		#######################################################################################################
+		$No7zip_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$No7zip_TEXTBOX.Location = New-Object System.Drawing.Point(10, 135)
+		$No7zip_TEXTBOX.Size = New-Object System.Drawing.Size(560, 30)
+		$No7zip_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$No7zip_TEXTBOX.TextAlign = 'Center'
+		$No7zip_TEXTBOX.Text = if ([string]::IsNullOrWhiteSpace($Exec7z)) { 'C:\Program Files\' } else { $Exec7z }
+		$No7zip_TEXTBOX.ReadOnly = $True
+		$No7zip_FORM.Controls.Add($No7zip_TEXTBOX)
+		#######################################################################################################
+		$No7zip_Directory_BUTTON = New-Object System.Windows.Forms.Button
+		$No7zip_Directory_BUTTON.Location = New-Object System.Drawing.Point(575, 135)
+		$No7zip_Directory_BUTTON.Size = New-Object System.Drawing.Size(35, 26)
+		$No7zip_Directory_BUTTON.Text = '...'
+		$No7zip_Directory_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$No7zip_Directory_BUTTON.Add_Click({
+			$No7zip_Directory_BUTTON_directoryname = New-Object System.Windows.Forms.FolderBrowserDialog
+			$No7zip_Directory_BUTTON_directoryname.RootFolder = "MyComputer"
+			$No7zip_Directory_BUTTON_directoryname.SelectedPath = "C:\Program Files\"
+			if ($No7zip_Directory_BUTTON_directoryname.ShowDialog() -eq "OK") {
+				$No7zip_TEXTBOX.Text = "$($No7zip_Directory_BUTTON_directoryname.SelectedPath)\7z.exe"
+			}
+		})
+		$No7zip_FORM.AcceptButton = $No7zip_Directory_BUTTON
+		$No7zip_FORM.Controls.Add($No7zip_Directory_BUTTON)
+		#######################################################################################################
+		$No7zip_OK_BUTTON = New-Object System.Windows.Forms.Button
+		$No7zip_OK_BUTTON.Location = New-Object System.Drawing.Point(10, 170)
+		$No7zip_OK_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$No7zip_OK_BUTTON.Text = 'OK'
+		$No7zip_OK_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$No7zip_OK_BUTTON.Add_Click({
+			if (-not (Test-Path -Path $No7zip_TEXTBOX.Text)) {
+				ErrorForm -ErrorLabelText "Wrong directory.`nThere are no 7z.exe in directory`n$($No7zip_TEXTBOX.Text|Split-Path -Parent)"
+				return
+			}
+			$ProfileXML = [System.Collections.ArrayList]::new()
+			foreach ($profile in $ProfileXmlObject) {
+				if ($profile.ProfileName -notin $Profile7zExecCheck) {
+					[void]$ProfileXML.Add($profile)
+				}
+				else {
+					$SettingParameters = @{
+						ProfileName           = "$($profile.ProfileName)"
+						BackupDirectory       = "$($profile.BackupDirectory)"
+						Executable_7z         = "$($No7zip_TEXTBOX.Text)"
+						SecondBackupDirectory = "$($profile.SecondBackupDirectory)"
+						BackupName            = "$($profile.BackupName)"
+						Source                = "$($profile.Source)"
+						RestoreDirectory      = "$($profile.RestoreDirectory)"
+						RestorePoints         = $($profile.RestorePoints)
+						BackupDayFilter       = $($profile.BackupDayFilter)
+						BackupCheckboxStatus  = $($profile.BackupCheckboxStatus)
+						RestoreCheckboxStatus = $($profile.RestoreCheckboxStatus)
+						CopyCheckboxStatus    = $($profile.CopyCheckboxStatus)
+					}
+					[void]$ProfileXML.Add($(settings @SettingParameters))
+				}
+			}
+			$ProfileXML | Export-Clixml -Path ${Running_Folder}\ProfileList.xml
+			ErrorForm -ErrorLabelText "The changes are saved. All profiles now have the correct path to the 7zip executable file"
+			$No7zip_FORM.Tag = $ProfileXML
+			$No7zip_FORM.Close()
+		})
+		$No7zip_FORM.AcceptButton = $No7zip_OK_BUTTON
+		$No7zip_FORM.Controls.Add($No7zip_OK_BUTTON)
+		#######################################################################################################
+		$No7zip_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$No7zip_Exit_BUTTON.Location = New-Object System.Drawing.Point(510, 170)
+		$No7zip_Exit_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$No7zip_Exit_BUTTON.Text = 'Exit'
+		$No7zip_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$No7zip_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$No7zip_FORM.AcceptButton = $No7zip_Exit_BUTTON
+		$No7zip_FORM.Controls.Add($No7zip_Exit_BUTTON)
+		######################################################################################################
+		$No7zip_FORM.ShowDialog() > $null
+		Return ,$No7zip_FORM.Tag
+	}
+
+	function BackupMenu {
+		param (
+			$ProfileXmlObject
+		)
+
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$BackupMenu_FORM = New-Object System.Windows.Forms.Form
+		$BackupMenu_FORM.Text = $FormsVariables.FormsText
+		$BackupMenu_FORM.Font = $FormsVariables.FormsFont
+		$BackupMenu_FORM.BackColor = $FormsVariables.FormsBackColor
+		$BackupMenu_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$BackupMenu_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$BackupMenu_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$BackupMenu_FORM.ClientSize = New-Object System.Drawing.Size(820, 635)
+		#######################################################################################################		
+		$BackupMenu_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_LABEL.Location = New-Object System.Drawing.Point(10, 10)
+		$BackupMenu_LABEL.Size = New-Object System.Drawing.Size(800, 20)
+		$BackupMenu_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 16, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_LABEL.Text = "Please select one of the options below."
+		$BackupMenu_FORM.Controls.Add($BackupMenu_LABEL)
+		#######################################################################################################
+		$BackupMenu_ProfileParameters_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_ProfileParameters_LABEL.Location = New-Object System.Drawing.Point(10, 35)
+		$BackupMenu_ProfileParameters_LABEL.Size = New-Object System.Drawing.Size(290, 25)
+		$BackupMenu_ProfileParameters_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$BackupMenu_ProfileParameters_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 14)
+		$BackupMenu_ProfileParameters_LABEL.Text = "Profile parameters list"
+		$BackupMenu_ProfileParameters_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$BackupMenu_FORM.Controls.Add($BackupMenu_ProfileParameters_LABEL)
+		#######################################################################################################
+		$BackupMenu_ProfileList_LISTBOX = New-Object System.Windows.Forms.ListBox
+		$BackupMenu_ProfileList_LISTBOX.Location = New-Object System.Drawing.Point(10, 67)
+		$BackupMenu_ProfileList_LISTBOX.Size = New-Object System.Drawing.Size(290, 236)
+		$BackupMenu_ProfileList_LISTBOX.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$BackupMenu_ProfileList_LISTBOX.ScrollAlwaysVisible = $true
+		$BackupMenu_ProfileList_LISTBOX.HorizontalScrollbar = $true
+		$BackupMenu_ProfileList_LISTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_ProfileList_LISTBOX.Add_SelectedIndexChanged({
+			BackupMenuButtons -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			[string]$DriveLetter = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)" }).BackupDirectory).split(':')[0]
+			if ($BackupMenu_ProfileList_LISTBOX.Tag.Keys -contains "$DriveLetter") {
+				$BackupMenu_SpaceLeftOnDisk_LABEL.Text = "There is $($BackupMenu_ProfileList_LISTBOX.Tag[$DriveLetter]) MB of free space left on drive $DriveLetter.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
+			}
+			else {
+				$BackupMenu_ProfileList_LISTBOX.Tag += $(DiskVariablesBackup -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)")
+			}
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_ProfileList_LISTBOX)
+		#######################################################################################################
+		$BackupMenu_SimpleBackup_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_SimpleBackup_BUTTON.Location = New-Object System.Drawing.Point(305, 35)
+		$BackupMenu_SimpleBackup_BUTTON.Size = New-Object System.Drawing.Size(150, 60)
+		$BackupMenu_SimpleBackup_BUTTON.Text = 'Simple Backup Job'
+		$BackupMenu_SimpleBackup_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SimpleBackup_BUTTON.Enabled = $false
+		$BackupMenu_SimpleBackup_BUTTON.Add_Click({
+			LogForm -LogFormJob "SimpleBackup_Job" -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			DiskVariablesBackup -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			$BackupMenu_ProfileList_LISTBOX.Tag = $null
+		})
+		$BackupMenu_FORM.AcceptButton = $BackupMenu_SimpleBackup_BUTTON
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleBackup_BUTTON)
+		######################################################################################################
+		$BackupMenu_SimpleBackup_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_SimpleBackup_LABEL.Location = New-Object System.Drawing.Point(460, 35)
+		$BackupMenu_SimpleBackup_LABEL.Size = New-Object System.Drawing.Size(350, 60)
+		$BackupMenu_SimpleBackup_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SimpleBackup_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SimpleBackup_LABEL.Text = "This job archives files from the source directory into a compressed format and stores them in the destination directory"
+		$BackupMenu_SimpleBackup_LABEL.BorderStyle = "FixedSingle"
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleBackup_LABEL)
+		#######################################################################################################
+		$BackupMenu_TimeFiltredBackup_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_TimeFiltredBackup_BUTTON.Location = New-Object System.Drawing.Point(305, 100)
+		$BackupMenu_TimeFiltredBackup_BUTTON.Size = New-Object System.Drawing.Size(150, 60)
+		$BackupMenu_TimeFiltredBackup_BUTTON.Text = 'Time Filtred Backup Job'
+		$BackupMenu_TimeFiltredBackup_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_TimeFiltredBackup_BUTTON.Enabled = $false
+		$BackupMenu_TimeFiltredBackup_BUTTON.Add_Click({
+			LogForm -LogFormJob "TimeFilteredBackup_Job" -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			DiskVariablesBackup -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			$BackupMenu_ProfileList_LISTBOX.Tag = $null
+		})
+		$BackupMenu_FORM.AcceptButton = $BackupMenu_TimeFiltredBackup_BUTTON
+		$BackupMenu_FORM.Controls.Add($BackupMenu_TimeFiltredBackup_BUTTON)
+		######################################################################################################
+		$BackupMenu_TimeFiltredBackup_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_TimeFiltredBackup_LABEL.Location = New-Object System.Drawing.Point(460, 100)
+		$BackupMenu_TimeFiltredBackup_LABEL.Size = New-Object System.Drawing.Size(350, 60)
+		$BackupMenu_TimeFiltredBackup_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_TimeFiltredBackup_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_TimeFiltredBackup_LABEL.Text = "This backup job includes only files modified in the last $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)" }).BackupDayFilter) days. (According to your settings)"
+		$BackupMenu_TimeFiltredBackup_LABEL.BorderStyle = "FixedSingle"
+		$BackupMenu_FORM.Controls.Add($BackupMenu_TimeFiltredBackup_LABEL)
+		#######################################################################################################
+		$BackupMenu_SimpleCopy_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_SimpleCopy_BUTTON.Location = New-Object System.Drawing.Point(305, 165)
+		$BackupMenu_SimpleCopy_BUTTON.Size = New-Object System.Drawing.Size(150, 60)
+		$BackupMenu_SimpleCopy_BUTTON.Text = 'Copy File Job'
+		$BackupMenu_SimpleCopy_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SimpleCopy_BUTTON.Enabled = $false
+		$BackupMenu_SimpleCopy_BUTTON.Add_Click({
+			LogForm -LogFormJob "CopyFile_Job" -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			DiskVariablesBackup -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			$BackupMenu_ProfileList_LISTBOX.Tag = $null
+		})
+		$BackupMenu_FORM.AcceptButton = $BackupMenu_SimpleCopy_BUTTON
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleCopy_BUTTON)
+		######################################################################################################
+		$BackupMenu_SimpleCopy_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_SimpleCopy_LABEL.Location = New-Object System.Drawing.Point(460, 165)
+		$BackupMenu_SimpleCopy_LABEL.Size = New-Object System.Drawing.Size(350, 60)
+		$BackupMenu_SimpleCopy_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SimpleCopy_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SimpleCopy_LABEL.Text = "This job copies files from the source directory to the destination directory incrementally."
+		$BackupMenu_SimpleCopy_LABEL.BorderStyle = "FixedSingle"
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleCopy_LABEL)
+		#######################################################################################################
+		$BackupMenu_Sync_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_Sync_BUTTON.Location = New-Object System.Drawing.Point(305, 230)
+		$BackupMenu_Sync_BUTTON.Size = New-Object System.Drawing.Size(150, 60)
+		$BackupMenu_Sync_BUTTON.Text = 'Sync Job'
+		$BackupMenu_Sync_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_Sync_BUTTON.Enabled = $false
+		$BackupMenu_Sync_BUTTON.Add_Click({
+			LogForm -LogFormJob "Sync_Job" -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			DiskVariablesBackup -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"
+			$BackupMenu_ProfileList_LISTBOX.Tag = $null
+		})
+		$BackupMenu_FORM.AcceptButton = $BackupMenu_Sync_BUTTON
+		$BackupMenu_FORM.Controls.Add($BackupMenu_Sync_BUTTON)
+		######################################################################################################
+		$BackupMenu_Sync_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_Sync_LABEL.Location = New-Object System.Drawing.Point(460, 230)
+		$BackupMenu_Sync_LABEL.Size = New-Object System.Drawing.Size(350, 60)
+		$BackupMenu_Sync_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_Sync_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_Sync_LABEL.Text = "This job synchronizes files from the source directory to the destination directory."
+		$BackupMenu_Sync_LABEL.BorderStyle = "FixedSingle"
+		$BackupMenu_FORM.Controls.Add($BackupMenu_Sync_LABEL)
+		######################################################################################################
+		$BackupMenu_Source_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_Source_LABEL.Location = New-Object System.Drawing.Point(10, 295)
+		$BackupMenu_Source_LABEL.Size = New-Object System.Drawing.Size(745, 20)
+		$BackupMenu_Source_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_Source_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_Source_LABEL.Text = "Source directory (file)"
+		$BackupMenu_FORM.Controls.Add($BackupMenu_Source_LABEL)
+		#######################################################################################################
+		$BackupMenu_Source_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$BackupMenu_Source_TEXTBOX.Location = New-Object System.Drawing.Point(10, 320)
+		$BackupMenu_Source_TEXTBOX.Size = New-Object System.Drawing.Size(745, 25)
+		$BackupMenu_Source_TEXTBOX.Text = ""
+		$BackupMenu_Source_TEXTBOX.Name = "BackupMenu_Source_TEXTBOX"
+		$BackupMenu_Source_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_Source_TEXTBOX.ReadOnly = $true
+		$BackupMenu_FORM.Controls.Add($BackupMenu_Source_TEXTBOX)
+		#######################################################################################################
+		$BackupMenu_Source_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_Source_BUTTON.Location = New-Object System.Drawing.Point(760, 320)
+		$BackupMenu_Source_BUTTON.Size = New-Object System.Drawing.Size(50, 26)
+		$BackupMenu_Source_BUTTON.Text = "..."
+		$BackupMenu_Source_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_Source_BUTTON.Enabled = $false
+		$BackupMenu_Source_BUTTON.Add_Click({
+			$Source = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)"}).Source)"
+			if ($Source[-1] -eq '\') {
+				Invoke-Item -Path "$Source"
+			}
+			else {
+				Invoke-Item -Path "$(Split-Path $Source -Parent)"
+			}
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_Source_BUTTON)
+		######################################################################################################
+		$BackupMenu_FirstDestination_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_FirstDestination_LABEL.Location = New-Object System.Drawing.Point(10, 350)
+		$BackupMenu_FirstDestination_LABEL.Size = New-Object System.Drawing.Size(342, 20)
+		$BackupMenu_FirstDestination_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_FirstDestination_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_FirstDestination_LABEL.Text = "First backup directory:"
+		$BackupMenu_FORM.Controls.Add($BackupMenu_FirstDestination_LABEL)
+		#######################################################################################################	
+		$BackupMenu_FirstDestination_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$BackupMenu_FirstDestination_TEXTBOX.Location = New-Object System.Drawing.Point(10, 375)
+		$BackupMenu_FirstDestination_TEXTBOX.Size = New-Object System.Drawing.Size(342, 25)
+		$BackupMenu_FirstDestination_TEXTBOX.Text = ""
+		$BackupMenu_FirstDestination_TEXTBOX.Name = "BackupMenu_FirstDestination_TEXTBOX"
+		$BackupMenu_FirstDestination_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_FirstDestination_TEXTBOX.ReadOnly = $true
+		$BackupMenu_FORM.Controls.Add($BackupMenu_FirstDestination_TEXTBOX)
+		#######################################################################################################
+		$BackupMenu_FirstDestination_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_FirstDestination_BUTTON.Location = New-Object System.Drawing.Point(357, 375)
+		$BackupMenu_FirstDestination_BUTTON.Size = New-Object System.Drawing.Size(50, 26)
+		$BackupMenu_FirstDestination_BUTTON.Text = "..."
+		$BackupMenu_FirstDestination_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_FirstDestination_BUTTON.Enabled = $false
+		$BackupMenu_FirstDestination_BUTTON.Add_Click({
+			$BackupDirectory = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)" }).BackupDirectory
+			Invoke-Item -Path "$BackupDirectory"
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_FirstDestination_BUTTON)
+		######################################################################################################
+		$BackupMenu_SecondDestination_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_SecondDestination_LABEL.Location = New-Object System.Drawing.Point(413, 350)
+		$BackupMenu_SecondDestination_LABEL.Size = New-Object System.Drawing.Size(342, 20)
+		$BackupMenu_SecondDestination_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SecondDestination_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SecondDestination_LABEL.Text = "Second Backup directory:"
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SecondDestination_LABEL)
+		#######################################################################################################	
+		$BackupMenu_SecondDestination_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$BackupMenu_SecondDestination_TEXTBOX.Location = New-Object System.Drawing.Point(413, 375)
+		$BackupMenu_SecondDestination_TEXTBOX.Size = New-Object System.Drawing.Size(342, 25)
+		$BackupMenu_SecondDestination_TEXTBOX.Text = ""
+		$BackupMenu_SecondDestination_TEXTBOX.Name = "BackupMenu_SecondDestination_TEXTBOX"
+		$BackupMenu_SecondDestination_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SecondDestination_TEXTBOX.ReadOnly = $true
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SecondDestination_TEXTBOX)
+		#######################################################################################################
+		$BackupMenu_SecondDestination_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_SecondDestination_BUTTON.Location = New-Object System.Drawing.Point(760, 375)
+		$BackupMenu_SecondDestination_BUTTON.Size = New-Object System.Drawing.Size(50, 26)
+		$BackupMenu_SecondDestination_BUTTON.Text = "..."
+		$BackupMenu_SecondDestination_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SecondDestination_BUTTON.Enabled = $false
+		$BackupMenu_SecondDestination_BUTTON.Add_Click({
+			$SecondBackupDirectory = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($BackupMenu_ProfileList_LISTBOX.SelectedItem)" }).SecondBackupDirectory
+			Invoke-Item -Path "$SecondBackupDirectory"
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SecondDestination_BUTTON)
+		######################################################################################################
+		$BackupMenu_SpaceLeftOnDisk_LABEL = New-Object System.Windows.Forms.Label
+		$BackupMenu_SpaceLeftOnDisk_LABEL.Location = New-Object System.Drawing.Point(10, 405)
+		$BackupMenu_SpaceLeftOnDisk_LABEL.Size = New-Object System.Drawing.Size(800, 60)
+		$BackupMenu_SpaceLeftOnDisk_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SpaceLeftOnDisk_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SpaceLeftOnDisk_LABEL.Text = "There is __ MB of free space left on drive __.`nIf you want to use this script to automate your tasks, below are the commands on how to use this script in the command line or in the task scheduler."
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SpaceLeftOnDisk_LABEL)
+		#######################################################################################################
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX.Location = New-Object System.Drawing.Point(10, 470)
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX.Size = New-Object System.Drawing.Size(670, 25)
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX.Text = "The Backup checkbox for this profile is disabled"
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX.Name = "BackupMenu_SimpleBackupCMDString_TEXTBOX"
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX.ReadOnly = $true
+		$BackupMenu_SimpleBackupCMDString_TEXTBOX.Enabled = $false
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleBackupCMDString_TEXTBOX)
+		#######################################################################################################
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON.Location = New-Object System.Drawing.Point(690, 470)
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON.Size = New-Object System.Drawing.Size(125, 22)
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON.Text = "Copy to clipboard"
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON.Font = New-Object System.Drawing.Font("Cascadia Mono", 8, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON.Enabled = $false
+		$BackupMenu_SimpleBackupCMDStringClipboard_BUTTON.Add_Click({
+			Set-Clipboard -Value $BackupMenu_SimpleBackupCMDString_TEXTBOX.Text
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleBackupCMDStringClipboard_BUTTON)
+		#######################################################################################################
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.Location = New-Object System.Drawing.Point(10, 500)
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.Size = New-Object System.Drawing.Size(670, 25)
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.Text = "The Backup checkbox for this profile is disabled"
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.Name = "BackupMenu_TimeFiltredBackupCMDString_TEXTBOX"
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.ReadOnly = $true
+		$BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.Enabled = $false
+		$BackupMenu_FORM.Controls.Add($BackupMenu_TimeFiltredBackupCMDString_TEXTBOX)
+		#######################################################################################################
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON.Location = New-Object System.Drawing.Point(690, 500)
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON.Size = New-Object System.Drawing.Size(125, 22)
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON.Text = "Copy to clipboard"
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON.Font = New-Object System.Drawing.Font("Cascadia Mono", 8, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON.Enabled = $false
+		$BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON.Add_Click({
+			Set-Clipboard -Value $BackupMenu_TimeFiltredBackupCMDString_TEXTBOX.Text
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_TimeFiltredBackupCMDStringClipboard_BUTTON)
+		#######################################################################################################
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX.Location = New-Object System.Drawing.Point(10, 530)
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX.Size = New-Object System.Drawing.Size(670, 25)
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX.Text = "The Copy checkbox for this profile is disabled"
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX.Name = "BackupMenu_SimpleCopyCMDString_TEXTBOX"
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX.ReadOnly = $true
+		$BackupMenu_SimpleCopyCMDString_TEXTBOX.Enabled = $false
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleCopyCMDString_TEXTBOX)
+		#######################################################################################################
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON.Location = New-Object System.Drawing.Point(690, 530)
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON.Size = New-Object System.Drawing.Size(125, 22)
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON.Text = "Copy to clipboard"
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON.Font = New-Object System.Drawing.Font("Cascadia Mono", 8, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON.Enabled = $false
+		$BackupMenu_SimpleCopyCMDStringClipboard_BUTTON.Add_Click({
+			Set-Clipboard -Value $BackupMenu_SimpleCopyCMDString_TEXTBOX.Text
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SimpleCopyCMDStringClipboard_BUTTON)
+		#######################################################################################################
+		$BackupMenu_SyncCMDString_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$BackupMenu_SyncCMDString_TEXTBOX.Location = New-Object System.Drawing.Point(10, 560)
+		$BackupMenu_SyncCMDString_TEXTBOX.Size = New-Object System.Drawing.Size(670, 25)
+		$BackupMenu_SyncCMDString_TEXTBOX.Text = "The Copy checkbox for this profile is disabled"
+		$BackupMenu_SyncCMDString_TEXTBOX.Name = "BackupMenu_SyncCMDString_TEXTBOX"
+		$BackupMenu_SyncCMDString_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SyncCMDString_TEXTBOX.ReadOnly = $true
+		$BackupMenu_SyncCMDString_TEXTBOX.Enabled = $false
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SyncCMDString_TEXTBOX)
+		#######################################################################################################
+		$BackupMenu_SyncCMDStringClipboard_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_SyncCMDStringClipboard_BUTTON.Location = New-Object System.Drawing.Point(690, 560)
+		$BackupMenu_SyncCMDStringClipboard_BUTTON.Size = New-Object System.Drawing.Size(125, 22)
+		$BackupMenu_SyncCMDStringClipboard_BUTTON.Text = "Copy to clipboard"
+		$BackupMenu_SyncCMDStringClipboard_BUTTON.Font = New-Object System.Drawing.Font("Cascadia Mono", 8, [System.Drawing.FontStyle]::Regular)
+		$BackupMenu_SyncCMDStringClipboard_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_SyncCMDStringClipboard_BUTTON.Enabled = $false
+		$BackupMenu_SyncCMDStringClipboard_BUTTON.Add_Click({
+			Set-Clipboard -Value $BackupMenu_SyncCMDString_TEXTBOX.Text
+		})
+		$BackupMenu_FORM.Controls.Add($BackupMenu_SyncCMDStringClipboard_BUTTON)
+		#######################################################################################################
+		$BackupMenu_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$BackupMenu_Exit_BUTTON.Location = New-Object System.Drawing.Point(350, 590)
+		$BackupMenu_Exit_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$BackupMenu_Exit_BUTTON.Text = 'Exit'
+		$BackupMenu_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$BackupMenu_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$BackupMenu_FORM.AcceptButton = $BackupMenu_Exit_BUTTON
+		$BackupMenu_FORM.Controls.Add($BackupMenu_Exit_BUTTON)
+		######################################################################################################
+		ListFiller -ProfileXmlObject $ProfileXmlObject -Menu 'BackupMenu'
+		$BackupMenu_FORM.ShowDialog() > $null
+	}
+
+	function RestoreMenuList {
+		param (
+			$ProfileXmlObject,
+			$RestoreMenuListObjects,
+			[string]$RestoreMenuButton
+		)
+
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$RestoreMenuList_FORM = New-Object System.Windows.Forms.Form
+		$RestoreMenuList_FORM.Text = $FormsVariables.FormsText
+		$RestoreMenuList_FORM.Font = $FormsVariables.FormsFont
+		$RestoreMenuList_FORM.BackColor = $FormsVariables.FormsBackColor
+		$RestoreMenuList_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$RestoreMenuList_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$RestoreMenuList_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$RestoreMenuList_FORM.ClientSize = New-Object System.Drawing.Size(580, 245)
+		#######################################################################################################
+		$RestoreMenuList_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenuList_LABEL.Location = New-Object System.Drawing.Point(10, 10)
+		$RestoreMenuList_LABEL.Size = New-Object System.Drawing.Size(560, 40)
+		$RestoreMenuList_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenuList_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenuList_LABEL.Text = "Select one backup from the list that you want to restore and click OK to start the recovery process"
+		$RestoreMenuList_FORM.Controls.Add($RestoreMenuList_LABEL)
+		######################################################################################################
+		$RestoreMenuList_List_LISTBOX = New-Object System.Windows.Forms.ListBox
+		$RestoreMenuList_List_LISTBOX.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$RestoreMenuList_List_LISTBOX.FormattingEnabled = $true
+		$RestoreMenuList_List_LISTBOX.Location = New-Object System.Drawing.Point(10, 55)
+		$RestoreMenuList_List_LISTBOX.ScrollAlwaysVisible = $true
+		$RestoreMenuList_List_LISTBOX.HorizontalScrollbar = $true
+		$RestoreMenuList_List_LISTBOX.Size = New-Object System.Drawing.Size(560, 140)
+		$RestoreMenuList_List_LISTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenuList_List_LISTBOX.Add_SelectedIndexChanged({
+			if ($RestoreMenuList_List_LISTBOX.SelectedItem) {
+				$RestoreMenuList_OK_BUTTON.Enabled = $true
+			}
+		})
+		$RestoreMenuList_FORM.Controls.Add($RestoreMenuList_List_LISTBOX)
+		#######################################################################################################
+		$RestoreMenuList_OK_BUTTON = New-Object System.Windows.Forms.Button
+		$RestoreMenuList_OK_BUTTON.Location = New-Object System.Drawing.Point(10, 200)
+		$RestoreMenuList_OK_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$RestoreMenuList_OK_BUTTON.Text = 'OK'
+		$RestoreMenuList_OK_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenuList_OK_BUTTON.Enabled = $false
+		$RestoreMenuList_OK_BUTTON.Add_Click({
+			if ($RestoreMenuButton -eq "ClassicRestore") {
+				LogForm -LogFormJob "Restore_Job" -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($RestoreMenu_ProfileList_LISTBOX.SelectedItem)" -SelectedBackup $RestoreMenuList_List_LISTBOX.SelectedItem
+				DiskVariablesRestore -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($RestoreMenu_ProfileList_LISTBOX.SelectedItem)"
+				$RestoreMenu_ProfileList_LISTBOX.Tag = $null
+			}
+			elseif ($RestoreMenuButton -eq "RestoreAfterDisaster") {
+				LogForm -LogFormJob "Restore_Job" -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($RestoreMenu_ProfileList_LISTBOX.SelectedItem)" -SelectedBackup $RestoreMenuList_List_LISTBOX.SelectedItem
+				DiskVariablesRestore -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($RestoreMenu_ProfileList_LISTBOX.SelectedItem)"
+				$RestoreMenu_ProfileList_LISTBOX.Tag = $null
+			}
+		})
+		$RestoreMenuList_FORM.AcceptButton = $RestoreMenuList_OK_BUTTON
+		$RestoreMenuList_FORM.Controls.Add($RestoreMenuList_OK_BUTTON)
+		#######################################################################################################
+		$RestoreMenuList_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$RestoreMenuList_Exit_BUTTON.Location = New-Object System.Drawing.Point(470, 200)
+		$RestoreMenuList_Exit_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$RestoreMenuList_Exit_BUTTON.Text = 'Exit'
+		$RestoreMenuList_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenuList_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$RestoreMenuList_FORM.AcceptButton = $RestoreMenuList_Exit_BUTTON
+		$RestoreMenuList_FORM.Controls.Add($RestoreMenuList_Exit_BUTTON)
+		######################################################################################################
+		ListFiller -RestoreMenuListObjects $RestoreMenuListObjects -Menu 'RestoreMenuList'
+		$RestoreMenuList_FORM.ShowDialog() > $null
+	}
+
+	function RestoreMenu {
+		param (
+			$ProfileXmlObject
+		)
+
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$RestoreMenu_FORM = New-Object System.Windows.Forms.Form
+		$RestoreMenu_FORM.Text = $FormsVariables.FormsText
+		$RestoreMenu_FORM.Font = $FormsVariables.FormsFont
+		$RestoreMenu_FORM.BackColor = $FormsVariables.FormsBackColor
+		$RestoreMenu_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$RestoreMenu_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$RestoreMenu_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$RestoreMenu_FORM.ClientSize = New-Object System.Drawing.Size(820, 400)
+		#######################################################################################################
+		$RestoreMenu_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenu_LABEL.Location = New-Object System.Drawing.Point(10, 10)
+		$RestoreMenu_LABEL.Size = New-Object System.Drawing.Size(790, 25)
+		$RestoreMenu_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_LABEL.Text = "Select one of the options below"
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_LABEL)
+		#######################################################################################################
+		$RestoreMenu_CheckBox_CHECKBOX = New-Object System.Windows.Forms.CheckBox
+		$RestoreMenu_CheckBox_CHECKBOX.Checked = $true
+		$RestoreMenu_CheckBox_CHECKBOX.CheckState = [System.Windows.Forms.CheckState]::Checked
+		$RestoreMenu_CheckBox_CHECKBOX.Location = New-Object System.Drawing.Point(140, 35)
+		$RestoreMenu_CheckBox_CHECKBOX.Size = New-Object System.Drawing.Size(660, 30)
+		$RestoreMenu_CheckBox_CHECKBOX.Text = "Make a backup before restoring an archive copy?"
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_CheckBox_CHECKBOX)
+		#######################################################################################################
+		$RestoreMenu_ProfileParameters_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenu_ProfileParameters_LABEL.Location = New-Object System.Drawing.Point(10, 70)
+		$RestoreMenu_ProfileParameters_LABEL.Size = New-Object System.Drawing.Size(280, 25)
+		$RestoreMenu_ProfileParameters_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$RestoreMenu_ProfileParameters_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 14)
+		$RestoreMenu_ProfileParameters_LABEL.Text = "Profile parameters list"
+		$RestoreMenu_ProfileParameters_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_ProfileParameters_LABEL)
+		#######################################################################################################
+		$RestoreMenu_ProfileList_LISTBOX = New-Object System.Windows.Forms.ListBox
+		$RestoreMenu_ProfileList_LISTBOX.Location = New-Object System.Drawing.Point(10, 100)
+		$RestoreMenu_ProfileList_LISTBOX.Size = New-Object System.Drawing.Size(280, 236)
+		$RestoreMenu_ProfileList_LISTBOX.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$RestoreMenu_ProfileList_LISTBOX.ScrollAlwaysVisible = $true
+		$RestoreMenu_ProfileList_LISTBOX.HorizontalScrollbar = $true
+		$RestoreMenu_ProfileList_LISTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_ProfileList_LISTBOX.Add_SelectedIndexChanged({
+			RestoreMenuButtons -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($RestoreMenu_ProfileList_LISTBOX.SelectedItem)"
+			[string]$DriveLetter = $(($ProfileXmlObject | Where-Object { $_.ProfileName -eq "$($RestoreMenu_ProfileList_LISTBOX.SelectedItem)" }).RestoreDirectory).split(':')[0]
+			if ($RestoreMenu_ProfileList_LISTBOX.Tag.Keys -contains "$DriveLetter") {
+				$RestoreMenu_SpaceLeftOnDisk_LABEL.Text = "There is $($RestoreMenu_ProfileList_LISTBOX.Tag[$DriveLetter]) MB of free space left on drive $DriveLetter."
+			}
+			else {
+				$RestoreMenu_ProfileList_LISTBOX.Tag += $(DiskVariablesRestore -ProfileXmlObject $ProfileXmlObject -SelectedProfile "$($RestoreMenu_ProfileList_LISTBOX.SelectedItem)")
+			}
+		})
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_ProfileList_LISTBOX)
+		#######################################################################################################
+		$RestoreMenu_ClassicRestore_BUTTON = New-Object System.Windows.Forms.Button
+		$RestoreMenu_ClassicRestore_BUTTON.Location = New-Object System.Drawing.Point(295, 70)
+		$RestoreMenu_ClassicRestore_BUTTON.Size = New-Object System.Drawing.Size(160, 65)
+		$RestoreMenu_ClassicRestore_BUTTON.Text = 'Restore Job 1'
+		$RestoreMenu_ClassicRestore_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_ClassicRestore_BUTTON.Add_Click({
+			$SelectedBackupDir = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).BackupDirectory
+			$SelectedBackupName = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).BackupName
+			$ListWithPath = -join ($SelectedBackupDir, $SelectedBackupName)
+			if (Test-Path "${ListWithPath}*") {
+				$RestoreMenuListObjects = $(Get-ChildItem "${ListWithPath}*" -Filter "*.7z" | Sort-Object LastWriteTime -Descending).FullName
+			} 
+			RestoreMenuList -ProfileXmlObject $ProfileXmlObject -RestoreMenuListObjects $RestoreMenuListObjects -RestoreMenuButton 'ClassicRestore'
+		})
+		$RestoreMenu_ClassicRestore_BUTTON.Enabled = $false
+		$RestoreMenu_FORM.AcceptButton = $RestoreMenu_ClassicRestore_BUTTON
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_ClassicRestore_BUTTON)
+		######################################################################################################
+		$RestoreMenu_ClassicRestore_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenu_ClassicRestore_LABEL.Location = New-Object System.Drawing.Point(460, 70)
+		$RestoreMenu_ClassicRestore_LABEL.Size = New-Object System.Drawing.Size(350, 65)
+		$RestoreMenu_ClassicRestore_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_ClassicRestore_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_ClassicRestore_LABEL.Text = "This Job allows you to recover files from an archive that was created during the Backup Job"
+		$RestoreMenu_ClassicRestore_LABEL.BorderStyle = "FixedSingle"
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_ClassicRestore_LABEL)
+		#######################################################################################################
+		$RestoreMenu_RestoreAfterDisaster_BUTTON = New-Object System.Windows.Forms.Button
+		$RestoreMenu_RestoreAfterDisaster_BUTTON.Location = New-Object System.Drawing.Point(295, 140)
+		$RestoreMenu_RestoreAfterDisaster_BUTTON.Size = New-Object System.Drawing.Size(160, 65)
+		$RestoreMenu_RestoreAfterDisaster_BUTTON.Text = "Restore Job 2"
+		$RestoreMenu_RestoreAfterDisaster_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_RestoreAfterDisaster_BUTTON.Add_Click({
+			$BackupBeforeRestoreDir = "Backups_before_restore\"
+			$SelectedBackupDir = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).BackupDirectory
+			$BackupCheckboxStatus = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).BackupCheckboxStatus
+			$RestoreCheckboxStatus = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).RestoreCheckboxStatus
+			$CopyCheckboxStatus = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).CopyCheckboxStatus
+			if (-not $BackupCheckboxStatus -and -not $CopyCheckboxStatus -and $RestoreCheckboxStatus) {
+				$SelectedBackupName = ''
+			}
+			else {
+				$SelectedBackupName = $RestoreMenu_ProfileList_LISTBOX.SelectedItem
+			}
+			$ListWithPath = -join ($SelectedBackupDir, $BackupBeforeRestoreDir, $SelectedBackupName)
+			if (Test-Path "${ListWithPath}*") {
+				$RestoreMenuListObjects = $(Get-ChildItem "${ListWithPath}*" -Filter "*.7z" | Sort-Object LastWriteTime -Descending).FullName
+			}
+			RestoreMenuList -ProfileXmlObject $ProfileXmlObject -RestoreMenuListObjects $RestoreMenuListObjects -RestoreMenuButton 'RestoreAfterDisaster'
+		})
+		$RestoreMenu_RestoreAfterDisaster_BUTTON.Enabled = $false
+		$RestoreMenu_FORM.AcceptButton = $RestoreMenu_RestoreAfterDisaster_BUTTON
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_RestoreAfterDisaster_BUTTON)
+		######################################################################################################
+		$RestoreMenu_RestoreAfterDisaster_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenu_RestoreAfterDisaster_LABEL.Location = New-Object System.Drawing.Point(460, 140)
+		$RestoreMenu_RestoreAfterDisaster_LABEL.Size = New-Object System.Drawing.Size(350, 65)
+		$RestoreMenu_RestoreAfterDisaster_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_RestoreAfterDisaster_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_RestoreAfterDisaster_LABEL.Text = "This button restores the backups created in Restore Jobs, if the `'Make a backup before restoring an archive copy?`' check box was selected."
+		$RestoreMenu_RestoreAfterDisaster_LABEL.BorderStyle = "FixedSingle"
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_RestoreAfterDisaster_LABEL)
+		######################################################################################################
+		$RestoreMenu_DestinationRestoreDirectory_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenu_DestinationRestoreDirectory_LABEL.Location = New-Object System.Drawing.Point(295, 210)
+		$RestoreMenu_DestinationRestoreDirectory_LABEL.Size = New-Object System.Drawing.Size(460, 20)
+		$RestoreMenu_DestinationRestoreDirectory_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_DestinationRestoreDirectory_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_DestinationRestoreDirectory_LABEL.Text = "Recovery directory"
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_DestinationRestoreDirectory_LABEL)
+		#######################################################################################################	
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX.Location = New-Object System.Drawing.Point(295, 240)
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX.Size = New-Object System.Drawing.Size(460, 30)
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX.Text = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq $ProfileXmlObject.SelectedProfile}).RestoreDirectory)"
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX.Name = 'RestoreMenu_DestinationRestoreDirectory_TEXTBOX'
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX.ReadOnly = $true
+		$RestoreMenu_DestinationRestoreDirectory_TEXTBOX.Enabled = $false
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_DestinationRestoreDirectory_TEXTBOX)
+		#######################################################################################################
+		$RestoreMenu_DestinationRestoreDirectory_BUTTON = New-Object System.Windows.Forms.Button
+		$RestoreMenu_DestinationRestoreDirectory_BUTTON.Location = New-Object System.Drawing.Point(760, 240)
+		$RestoreMenu_DestinationRestoreDirectory_BUTTON.Size = New-Object System.Drawing.Size(50, 27)
+		$RestoreMenu_DestinationRestoreDirectory_BUTTON.Text = "..."
+		$RestoreMenu_DestinationRestoreDirectory_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_DestinationRestoreDirectory_BUTTON.Enabled = $false
+		$RestoreMenu_DestinationRestoreDirectory_BUTTON.Add_Click({
+			$RestoreDirectory = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).RestoreDirectory
+			Invoke-Item -Path "$RestoreDirectory"
+		})
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_DestinationRestoreDirectory_BUTTON)
+		######################################################################################################
+		$RestoreMenu_SourceBackupDirectory_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenu_SourceBackupDirectory_LABEL.Location = New-Object System.Drawing.Point(295, 272)
+		$RestoreMenu_SourceBackupDirectory_LABEL.Size = New-Object System.Drawing.Size(460, 20)
+		$RestoreMenu_SourceBackupDirectory_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_SourceBackupDirectory_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_SourceBackupDirectory_LABEL.Text = "Backup Directory"
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_SourceBackupDirectory_LABEL)
+		#######################################################################################################	
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX.Location = New-Object System.Drawing.Point(295, 297)
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX.Size = New-Object System.Drawing.Size(460, 30)
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX.Text = "$(($ProfileXmlObject|Where-Object {$_.ProfileName -eq $ProfileXmlObject.SelectedProfile}).BackupDirectory)"
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX.Name = 'RestoreMenu_SourceBackupDirectory_TEXTBOX'
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX.ReadOnly = $true
+		$RestoreMenu_SourceBackupDirectory_TEXTBOX.Enabled = $false
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_SourceBackupDirectory_TEXTBOX)
+		#######################################################################################################
+		$RestoreMenu_SourceBackupDirectory_BUTTON = New-Object System.Windows.Forms.Button
+		$RestoreMenu_SourceBackupDirectory_BUTTON.Location = New-Object System.Drawing.Point(760, 297)
+		$RestoreMenu_SourceBackupDirectory_BUTTON.Size = New-Object System.Drawing.Size(50, 27)
+		$RestoreMenu_SourceBackupDirectory_BUTTON.Text = "..."
+		$RestoreMenu_SourceBackupDirectory_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_SourceBackupDirectory_BUTTON.Enabled = $false
+		$RestoreMenu_SourceBackupDirectory_BUTTON.Add_Click({
+			$BackupDirectory = ($ProfileXmlObject | Where-Object { $_.ProfileName -eq $RestoreMenu_ProfileList_LISTBOX.SelectedItem }).BackupDirectory
+			Invoke-Item -Path "$BackupDirectory"
+		})
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_SourceBackupDirectory_BUTTON)
+		######################################################################################################
+		$RestoreMenu_SpaceLeftOnDisk_LABEL = New-Object System.Windows.Forms.Label
+		$RestoreMenu_SpaceLeftOnDisk_LABEL.Location = New-Object System.Drawing.Point(10, 330)
+		$RestoreMenu_SpaceLeftOnDisk_LABEL.Size = New-Object System.Drawing.Size(790, 20)
+		$RestoreMenu_SpaceLeftOnDisk_LABEL.Font = New-Object System.Drawing.Font("Cascadia Mono", 12, [System.Drawing.FontStyle]::Regular)
+		$RestoreMenu_SpaceLeftOnDisk_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_SpaceLeftOnDisk_LABEL.Text = "There is __ MB of free space left on drive __."
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_SpaceLeftOnDisk_LABEL)
+		#######################################################################################################
+		$RestoreMenu_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$RestoreMenu_Exit_BUTTON.Location = New-Object System.Drawing.Point(350, 355)
+		$RestoreMenu_Exit_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$RestoreMenu_Exit_BUTTON.Text = 'Exit'
+		$RestoreMenu_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$RestoreMenu_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$RestoreMenu_FORM.AcceptButton = $RestoreMenu_Exit_BUTTON
+		$RestoreMenu_FORM.Controls.Add($RestoreMenu_Exit_BUTTON)
+		######################################################################################################
+		ListFiller -ProfileXmlObject $ProfileXmlObject -Menu 'RestoreMenu'
+		$RestoreMenu_FORM.ShowDialog() > $null
+	}
+
+	function ProfileMenu {
+		param (
+			$ProfileXmlObject
+		)
+
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$ProfileMenu_FORM = New-Object System.Windows.Forms.Form
+		$ProfileMenu_FORM.Text = $FormsVariables.FormsText
+		$ProfileMenu_FORM.Font = $FormsVariables.FormsFont
+		$ProfileMenu_FORM.BackColor = $FormsVariables.FormsBackColor
+		$ProfileMenu_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$ProfileMenu_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$ProfileMenu_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$ProfileMenu_FORM.ClientSize = New-Object System.Drawing.Size(630, 373)
+		$ProfileMenu_FORM.Tag = $ProfileXmlObject
+		#######################################################################################################
+		$ProfileMenu_LABEL = New-Object System.Windows.Forms.Label
+		$ProfileMenu_LABEL.Location = New-Object System.Drawing.Point(0, 5)
+		$ProfileMenu_LABEL.Size = New-Object System.Drawing.Size(630, 30)
+		$ProfileMenu_LABEL.Text = "Profile configuration window"
+		$ProfileMenu_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_LABEL)
+		#######################################################################################################
+		$ProfileMenu_ProfileList_LABEL = New-Object System.Windows.Forms.Label
+		$ProfileMenu_ProfileList_LABEL.Location = New-Object System.Drawing.Point(10, 40)
+		$ProfileMenu_ProfileList_LABEL.Size = New-Object System.Drawing.Size(305, 25)
+		$ProfileMenu_ProfileList_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$ProfileMenu_ProfileList_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 14)
+		$ProfileMenu_ProfileList_LABEL.Text = "Profiles List"
+		$ProfileMenu_ProfileList_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileList_LABEL)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameters_LABEL = New-Object System.Windows.Forms.Label
+		$ProfileMenu_ProfileParameters_LABEL.Location = New-Object System.Drawing.Point(320, 40)
+		$ProfileMenu_ProfileParameters_LABEL.Size = New-Object System.Drawing.Size(300, 25)
+		$ProfileMenu_ProfileParameters_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$ProfileMenu_ProfileParameters_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 14)
+		$ProfileMenu_ProfileParameters_LABEL.Text = "Profile parameters list"
+		$ProfileMenu_ProfileParameters_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameters_LABEL)
+		#######################################################################################################
+		$ProfileMenu_ProfileList_LISTBOX = New-Object System.Windows.Forms.ListBox
+		$ProfileMenu_ProfileList_LISTBOX.Location = New-Object System.Drawing.Point(10, 70)
+		$ProfileMenu_ProfileList_LISTBOX.Size = New-Object System.Drawing.Size(305, 236)
+		$ProfileMenu_ProfileList_LISTBOX.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$ProfileMenu_ProfileList_LISTBOX.ScrollAlwaysVisible = $true
+		$ProfileMenu_ProfileList_LISTBOX.HorizontalScrollbar = $true
+		$ProfileMenu_ProfileList_LISTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$ProfileMenu_ProfileList_LISTBOX.Add_SelectedIndexChanged({
+			ProfileMenuProfileParametersList -ProfileXmlObject $ProfileXmlObject
+			ProfileMenuButtonsActive
+		})
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileList_LISTBOX)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameterBackup_CHECKBOX = New-Object System.Windows.Forms.CheckBox
+		$ProfileMenu_ProfileParameterBackup_CHECKBOX.Location = New-Object System.Drawing.Point(320, 70)
+		$ProfileMenu_ProfileParameterBackup_CHECKBOX.Size = New-Object System.Drawing.Size(20, 30)
+		$ProfileMenu_ProfileParameterBackup_CHECKBOX.Checked = $false
+		$ProfileMenu_ProfileParameterBackup_CHECKBOX.Enabled = $false
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameterBackup_CHECKBOX)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameterBackup_LABEL = New-Object System.Windows.Forms.Label
+		$ProfileMenu_ProfileParameterBackup_LABEL.Location = New-Object System.Drawing.Point(340, 70)
+		$ProfileMenu_ProfileParameterBackup_LABEL.Size = New-Object System.Drawing.Size(120, 30)
+		$ProfileMenu_ProfileParameterBackup_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$ProfileMenu_ProfileParameterBackup_LABEL.Text = "Backup function"
+		$ProfileMenu_ProfileParameterBackup_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameterBackup_LABEL)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameterRestore_CHECKBOX = New-Object System.Windows.Forms.CheckBox
+		$ProfileMenu_ProfileParameterRestore_CHECKBOX.Location = New-Object System.Drawing.Point(470, 70)
+		$ProfileMenu_ProfileParameterRestore_CHECKBOX.Size = New-Object System.Drawing.Size(20, 30)
+		$ProfileMenu_ProfileParameterRestore_CHECKBOX.Checked = $false
+		$ProfileMenu_ProfileParameterRestore_CHECKBOX.CheckState = [System.Windows.Forms.CheckState]::Unchecked
+		$ProfileMenu_ProfileParameterRestore_CHECKBOX.Enabled = $false
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameterRestore_CHECKBOX)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameterRestore_LABEL = New-Object System.Windows.Forms.Label
+		$ProfileMenu_ProfileParameterRestore_LABEL.Location = New-Object System.Drawing.Point(490, 70)
+		$ProfileMenu_ProfileParameterRestore_LABEL.Size = New-Object System.Drawing.Size(120, 30)
+		$ProfileMenu_ProfileParameterRestore_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$ProfileMenu_ProfileParameterRestore_LABEL.Text = "Restore Function"
+		$ProfileMenu_ProfileParameterRestore_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameterRestore_LABEL)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX = New-Object System.Windows.Forms.CheckBox
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX.Location = New-Object System.Drawing.Point(320, 100)
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX.Size = New-Object System.Drawing.Size(20, 30)
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX.Text = "Copy Function"
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX.Checked = $false
+		$ProfileMenu_ProfileParameterCopy_CHECKBOX.Enabled = $false
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameterCopy_CHECKBOX)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameterCopy_LABEL = New-Object System.Windows.Forms.Label
+		$ProfileMenu_ProfileParameterCopy_LABEL.Location = New-Object System.Drawing.Point(340, 100)
+		$ProfileMenu_ProfileParameterCopy_LABEL.Size = New-Object System.Drawing.Size(120, 30)
+		$ProfileMenu_ProfileParameterCopy_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$ProfileMenu_ProfileParameterCopy_LABEL.Text = "Copy Function"
+		$ProfileMenu_ProfileParameterCopy_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameterCopy_LABEL)
+		#######################################################################################################
+		$ProfileMenu_ProfileParameterList_LISTBOX = New-Object System.Windows.Forms.ListBox
+		$ProfileMenu_ProfileParameterList_LISTBOX.Location = New-Object System.Drawing.Point(320, 138)
+		$ProfileMenu_ProfileParameterList_LISTBOX.Size = New-Object System.Drawing.Size(300, 160)
+		$ProfileMenu_ProfileParameterList_LISTBOX.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$ProfileMenu_ProfileParameterList_LISTBOX.ScrollAlwaysVisible = $false
+		$ProfileMenu_ProfileParameterList_LISTBOX.HorizontalScrollbar = $true
+		$ProfileMenu_ProfileParameterList_LISTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 10, [System.Drawing.FontStyle]::Regular)
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_ProfileParameterList_LISTBOX)
+		#######################################################################################################
+		$ProfileMenu_Edit_BUTTON = New-Object System.Windows.Forms.Button
+		$ProfileMenu_Edit_BUTTON.Location = New-Object System.Drawing.Point(10, 303)
+		$ProfileMenu_Edit_BUTTON.Size = New-Object System.Drawing.Size(145, 60)
+		$ProfileMenu_Edit_BUTTON.Text = 'Edit Selected Profile'
+		$ProfileMenu_Edit_BUTTON.Font = New-Object System.Drawing.Font("Times New Roman", 12, [System.Drawing.FontStyle]::Regular)
+		$ProfileMenu_Edit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$ProfileMenu_Edit_BUTTON.Add_Click({
+			$ProfileMenu_FORM.Tag = AdvancedMenu -ProfileTask 'Edit' -ChosenProfile "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)" -ProfileXmlObject $ProfileMenu_FORM.Tag
+		})
+		$ProfileMenu_FORM.AcceptButton = $ProfileMenu_Edit_BUTTON
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_Edit_BUTTON)
+		#######################################################################################################
+		$ProfileMenu_Add_BUTTON = New-Object System.Windows.Forms.Button
+		$ProfileMenu_Add_BUTTON.Location = New-Object System.Drawing.Point(165, 303)
+		$ProfileMenu_Add_BUTTON.Size = New-Object System.Drawing.Size(145, 60)
+		$ProfileMenu_Add_BUTTON.Text = 'Add New Profile'
+		$ProfileMenu_Add_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$ProfileMenu_Add_BUTTON.Font = New-Object System.Drawing.Font("Times New Roman", 12, [System.Drawing.FontStyle]::Regular)
+		$ProfileMenu_Add_BUTTON.Add_Click({
+			$ProfileMenu_FORM.Tag = AdvancedMenu -ProfileTask 'Add' -ProfileXmlObject $ProfileMenu_FORM.Tag
+		})
+		$ProfileMenu_FORM.AcceptButton = $ProfileMenu_Add_BUTTON
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_Add_BUTTON)
+		#######################################################################################################
+		$ProfileMenu_Delete_BUTTON = New-Object System.Windows.Forms.Button
+		$ProfileMenu_Delete_BUTTON.Location = New-Object System.Drawing.Point(320, 303)
+		$ProfileMenu_Delete_BUTTON.Size = New-Object System.Drawing.Size(145, 60)
+		$ProfileMenu_Delete_BUTTON.Text = 'Delete Selected Profile'
+		$ProfileMenu_Delete_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$ProfileMenu_Delete_BUTTON.Font = New-Object System.Drawing.Font("Times New Roman", 12, [System.Drawing.FontStyle]::Regular)
+		$ProfileMenu_Delete_BUTTON.Add_Click({
+			$ProfileMenu_LABEL.Tag += 1
+			switch ($ProfileXmlObject.Count) {
+				1 {
+					DeleteLastProfile
+				}
+				{ $_ -gt 1 } {
+					$ProfileMenu_FORM.Tag = DeleteProfileGT1 -ProfileXmlObject $ProfileMenu_FORM.Tag -ChosenProfile "$($ProfileMenu_ProfileList_LISTBOX.SelectedItem)" 
+				}
+			}
+		})
+		$ProfileMenu_FORM.AcceptButton = $ProfileMenu_Delete_BUTTON
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_Delete_BUTTON)
+		#######################################################################################################
+		$ProfileMenu_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$ProfileMenu_Exit_BUTTON.Location = New-Object System.Drawing.Point(475, 303)
+		$ProfileMenu_Exit_BUTTON.Size = New-Object System.Drawing.Size(145, 60)
+		$ProfileMenu_Exit_BUTTON.Text = 'EXIT'
+		$ProfileMenu_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$ProfileMenu_Exit_BUTTON.Font = New-Object System.Drawing.Font("Times New Roman", 12, [System.Drawing.FontStyle]::Regular)
+		$ProfileMenu_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$ProfileMenu_FORM.AcceptButton = $ProfileMenu_Exit_BUTTON
+		$ProfileMenu_FORM.Controls.Add($ProfileMenu_Exit_BUTTON)
+		#######################################################################################################
+		ListFiller -ProfileXmlObject $ProfileXmlObject -Menu 'ProfileMenu'
+		ProfileMenuProfileParametersList
+		ProfileMenuButtonsActive
+		$ProfileMenu_FORM.ShowDialog() > $null
+		if ($ProfileMenu_LABEL.Tag -ge 1) {
+			$ProfileMenu_FORM.Tag | Export-Clixml -Path ${Running_Folder}\ProfileList.xml
+		}
+		return ,$ProfileMenu_FORM.Tag
+	}
+
+	function AdvancedMenu {
+		param (
+			[string]$ProfileTask,
+			[string]$ChosenProfile,
+			$ProfileXmlObject
+		)
+
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$AdvancedMenu_FORM = New-Object System.Windows.Forms.Form
+		$AdvancedMenu_FORM.Text = $FormsVariables.FormsText
+		$AdvancedMenu_FORM.Font = $FormsVariables.FormsFont
+		$AdvancedMenu_FORM.BackColor = $FormsVariables.FormsBackColor
+		$AdvancedMenu_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$AdvancedMenu_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$AdvancedMenu_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$AdvancedMenu_FORM.ClientSize = New-Object System.Drawing.Size(980, 425)
+		$AdvancedMenu_FORM.Add_Paint({
+			param (
+				$Source_Form, 
+				$Event_Args
+			)
+
+			$Graphics = $Event_Args.Graphics
+			$Rectangle = [System.Drawing.Rectangle]::new(237, 37, 735, 340)
+			$BorderPen = [System.Drawing.Pen]::new([System.Drawing.Color]::White, 1)
+			$Graphics.DrawRectangle($borderPen, $rectangle)
+			$BorderPen.Dispose()
+		})
+		$AdvancedMenu_FORM.Tag = $ProfileXmlObject
+		#######################################################################################################
+		$AdvancedMenu_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_LABEL.Location = New-Object System.Drawing.Point(0, 5)
+		$AdvancedMenu_LABEL.Size = New-Object System.Drawing.Size(980, 30)
+		$AdvancedMenu_LABEL.Text = "Set all mandatory settings (*) before using the program."
+		$AdvancedMenu_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_ProfileName_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_ProfileName_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 14)
+		$AdvancedMenu_ProfileName_LABEL.Location = New-Object System.Drawing.Point(10, 40)
+		$AdvancedMenu_ProfileName_LABEL.Size = New-Object System.Drawing.Size(220, 35)
+		$AdvancedMenu_ProfileName_LABEL.Text = "Enter the profile name in the text box below"
+		$AdvancedMenu_ProfileName_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_ProfileName_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_BackupName_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_BackupName_TEXTBOX.Location = New-Object System.Drawing.Point(240, 40)
+		$AdvancedMenu_BackupName_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_BackupName_TEXTBOX.Text = $null
+		$AdvancedMenu_BackupName_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_BackupName_TEXTBOX.Enabled = $False
+		$AdvancedMenu_BackupName_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_BackupName_TEXTBOX.Add_Leave({
+			$AdvancedMenu_BackupName_TEXTBOX.Text = $AdvancedMenu_BackupName_TEXTBOX.Text -Replace '[\W]'
+		})
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_BackupName_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_BackupName_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_BackupName_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_BackupName_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_BackupName_LABEL.Location = New-Object System.Drawing.Point(560, 40)
+		$AdvancedMenu_BackupName_LABEL.Size = New-Object System.Drawing.Size(410, 35)
+		$AdvancedMenu_BackupName_LABEL.Text = "* Backup name. This name will be used when creating the archive with the addition of the archive creation time."
+		$AdvancedMenu_BackupName_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_BackupName_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_ProfileName_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_ProfileName_TEXTBOX.Location = New-Object System.Drawing.Point(10, 80)
+		$AdvancedMenu_ProfileName_TEXTBOX.Size = New-Object System.Drawing.Size(220, 35)
+		$AdvancedMenu_ProfileName_TEXTBOX.Text = $null
+		$AdvancedMenu_ProfileName_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_ProfileName_TEXTBOX.Add_Leave({
+			$AdvancedMenu_ProfileName_TEXTBOX.Text = $AdvancedMenu_ProfileName_TEXTBOX.Text -replace '[\W]'
+		})
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_ProfileName_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_Source_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_Source_TEXTBOX.Location = New-Object System.Drawing.Point(240, 80)
+		$AdvancedMenu_Source_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_Source_TEXTBOX.Text = $null
+		$AdvancedMenu_Source_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_Source_TEXTBOX.ReadOnly = $true
+		$AdvancedMenu_Source_TEXTBOX.Enabled = $False
+		$AdvancedMenu_Source_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_Source_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_SourceDirectory_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_SourceDirectory_BUTTON.Location = New-Object System.Drawing.Point(475, 80)
+		$AdvancedMenu_SourceDirectory_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_SourceDirectory_BUTTON.Text = "Folder"
+		$AdvancedMenu_SourceDirectory_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_SourceDirectory_BUTTON.Font = New-Object System.Drawing.Font("Times New Roman", 7, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Point, 204)
+		$AdvancedMenu_SourceDirectory_BUTTON.Add_Click({
+			$AdvancedMenu_SourceDirectory_BUTTON_directoryname = New-Object System.Windows.Forms.FolderBrowserDialog
+			$AdvancedMenu_SourceDirectory_BUTTON_directoryname.RootFolder = "MyComputer"
+			if ($AdvancedMenu_SourceDirectory_BUTTON_directoryname.ShowDialog() -eq "OK") {
+				if ($($AdvancedMenu_SourceDirectory_BUTTON_directoryname.SelectedPath)[-1] -eq '\') {
+					$AdvancedMenu_Source_TEXTBOX.Text = "$($AdvancedMenu_SourceDirectory_BUTTON_directoryname.SelectedPath)"
+				}
+				else {
+					$AdvancedMenu_Source_TEXTBOX.Text = "$($AdvancedMenu_SourceDirectory_BUTTON_directoryname.SelectedPath)\"
+				}
+			}
+		})
+		$AdvancedMenu_SourceDirectory_BUTTON.Enabled = $SourceFolder_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_SourceDirectory_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_SourceDirectory_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_SourceFile_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_SourceFile_BUTTON.Location = New-Object System.Drawing.Point(515, 80)
+		$AdvancedMenu_SourceFile_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_SourceFile_BUTTON.Text = "File"
+		$AdvancedMenu_SourceFile_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_SourceFile_BUTTON.Font = New-Object System.Drawing.Font("Times New Roman", 7, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Point, 204)
+		$AdvancedMenu_SourceFile_BUTTON.Add_Click({
+			$AdvancedMenu_SourceFile_BUTTON_filename = New-Object System.Windows.Forms.OpenFileDialog
+			if ($AdvancedMenu_SourceFile_BUTTON_filename.ShowDialog() -eq "OK") {
+				$AdvancedMenu_Source_TEXTBOX.Text = $AdvancedMenu_SourceFile_BUTTON_filename.FileName
+			}
+		})
+		$AdvancedMenu_SourceFile_BUTTON.Enabled = $SourceFolder_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_SourceFile_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_SourceFile_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_Source_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_Source_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_Source_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_Source_LABEL.Location = New-Object System.Drawing.Point(560, 80)
+		$AdvancedMenu_Source_LABEL.Size = New-Object System.Drawing.Size(410, 35)
+		$AdvancedMenu_Source_LABEL.Text = "* Source directory or a file. Select directory or a file you want to archive."
+		$AdvancedMenu_Source_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_Source_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_CheckBox_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_CheckBox_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 14)
+		$AdvancedMenu_CheckBox_LABEL.Location = New-Object System.Drawing.Point(10, 120)
+		$AdvancedMenu_CheckBox_LABEL.Size = New-Object System.Drawing.Size(220, 75)
+		$AdvancedMenu_CheckBox_LABEL.Text = "Click on the appropriate checkbox to select the functionality you will use"
+		$AdvancedMenu_CheckBox_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_CheckBox_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_BackupDirectory_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_BackupDirectory_TEXTBOX.Location = New-Object System.Drawing.Point(240, 120)
+		$AdvancedMenu_BackupDirectory_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_BackupDirectory_TEXTBOX.Text = $null
+		$AdvancedMenu_BackupDirectory_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_BackupDirectory_TEXTBOX.ReadOnly = $true
+		$AdvancedMenu_BackupDirectory_TEXTBOX.Enabled = $False
+		$AdvancedMenu_BackupDirectory_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_BackupDirectory_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_BackupDirectory_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_BackupDirectory_BUTTON.Location = New-Object System.Drawing.Point(515, 120)
+		$AdvancedMenu_BackupDirectory_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_BackupDirectory_BUTTON.Text = "..."
+		$AdvancedMenu_BackupDirectory_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_BackupDirectory_BUTTON.Add_Click({
+			$AdvancedMenu_BackupDirectory_BUTTON_directoryname = New-Object System.Windows.Forms.FolderBrowserDialog
+			$AdvancedMenu_BackupDirectory_BUTTON_directoryname.RootFolder = "MyComputer"
+			if ($AdvancedMenu_BackupDirectory_BUTTON_directoryname.ShowDialog() -eq "OK") {
+				if ($($AdvancedMenu_BackupDirectory_BUTTON_directoryname.SelectedPath)[-1] -eq '\') {
+					$AdvancedMenu_BackupDirectory_TEXTBOX.Text = "$($AdvancedMenu_BackupDirectory_BUTTON_directoryname.SelectedPath)"
+				}
+				else {
+					$AdvancedMenu_BackupDirectory_TEXTBOX.Text = "$($AdvancedMenu_BackupDirectory_BUTTON_directoryname.SelectedPath)\"
+				}
+			}
+		})
+		$AdvancedMenu_BackupDirectory_BUTTON.Enabled = $BackupDirectory_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_BackupDirectory_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_BackupDirectory_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_BackupDirectory_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_BackupDirectory_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_BackupDirectory_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_BackupDirectory_LABEL.Location = New-Object System.Drawing.Point(560, 120)
+		$AdvancedMenu_BackupDirectory_LABEL.Size = New-Object System.Drawing.Size(410, 35)
+		$AdvancedMenu_BackupDirectory_LABEL.Text = "* Backup Directory. The directory where you would like to store your archive copies."
+		$AdvancedMenu_BackupDirectory_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_BackupDirectory_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Location = New-Object System.Drawing.Point(240, 160)
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text = $null
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.ReadOnly = $true
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Enabled = $False
+		$AdvancedMenu_SecondBackupDirectory_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_SecondBackupDirectory_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_SecondBackupDirectory_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_SecondBackupDirectory_BUTTON.Location = New-Object System.Drawing.Point(515, 160)
+		$AdvancedMenu_SecondBackupDirectory_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_SecondBackupDirectory_BUTTON.Text = "..."
+		$AdvancedMenu_SecondBackupDirectory_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_SecondBackupDirectory_BUTTON.Add_Click({
+			$AdvancedMenu_SecondBackupDirectory_BUTTON_directoryname = New-Object System.Windows.Forms.FolderBrowserDialog
+			$AdvancedMenu_SecondBackupDirectory_BUTTON_directoryname.RootFolder = "MyComputer"
+			if ($AdvancedMenu_SecondBackupDirectory_BUTTON_directoryname.ShowDialog() -eq "OK") {
+				if ($($AdvancedMenu_SecondBackupDirectory_BUTTON_directoryname.SelectedPath)[-1] -eq '\') {
+					$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text = "$($AdvancedMenu_SecondBackupDirectory_BUTTON_directoryname.SelectedPath)"
+				}
+				else {
+					$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text = "$($AdvancedMenu_SecondBackupDirectory_BUTTON_directoryname.SelectedPath)\"
+				}
+			}
+		})
+		$AdvancedMenu_SecondBackupDirectory_BUTTON.Enabled = $BackupSecondDirectory_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_SecondBackupDirectory_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_SecondBackupDirectory_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_SecondBackupDirectoryClear_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_SecondBackupDirectoryClear_BUTTON.Location = New-Object System.Drawing.Point(475, 160)
+		$AdvancedMenu_SecondBackupDirectoryClear_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_SecondBackupDirectoryClear_BUTTON.Text = "-"
+		$AdvancedMenu_SecondBackupDirectoryClear_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_SecondBackupDirectoryClear_BUTTON.Add_Click({
+			$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text = $null
+		})
+		$AdvancedMenu_SecondBackupDirectoryClear_BUTTON.Enabled = $BackupSecondDirectory_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_SecondBackupDirectoryClear_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_SecondBackupDirectoryClear_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_SecondBackupDirectory_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_SecondBackupDirectory_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_SecondBackupDirectory_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_SecondBackupDirectory_LABEL.Location = New-Object System.Drawing.Point(560, 160)
+		$AdvancedMenu_SecondBackupDirectory_LABEL.Size = New-Object System.Drawing.Size(410, 35)
+		$AdvancedMenu_SecondBackupDirectory_LABEL.Text = "Second Backup Directory. An additional directory where you would like to save your archive copies."
+		$AdvancedMenu_SecondBackupDirectory_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_SecondBackupDirectory_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_Backup_CHECKBOX = New-Object System.Windows.Forms.CheckBox
+		$AdvancedMenu_Backup_CHECKBOX.Checked = $false
+		$AdvancedMenu_Backup_CHECKBOX.Location = New-Object System.Drawing.Point(10, 200)
+		$AdvancedMenu_Backup_CHECKBOX.Size = New-Object System.Drawing.Size(220, 45)
+		$AdvancedMenu_Backup_CHECKBOX.Text = "Backup and Filtered Backup functionality"
+		$AdvancedMenu_Backup_CHECKBOX.Font = New-Object System.Drawing.Font("Times New Roman", 12)
+		$AdvancedMenu_Backup_CHECKBOX.Add_CheckStateChanged({
+			AdvancedMenuSwitch
+		})
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_Backup_CHECKBOX)
+		#######################################################################################################
+		$AdvancedMenu_RestoreDirectory_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.Location = New-Object System.Drawing.Point(240, 200)
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.Text = $null
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.ReadOnly = $true
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.Enabled = $False
+		$AdvancedMenu_RestoreDirectory_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_RestoreDirectory_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_RestoreCopySource_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_RestoreCopySource_BUTTON.Location = New-Object System.Drawing.Point(475, 200)
+		$AdvancedMenu_RestoreCopySource_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_RestoreCopySource_BUTTON.Text = "S"
+		$AdvancedMenu_RestoreCopySource_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_RestoreCopySource_BUTTON.Add_Click({
+			if ($AdvancedMenu_Source_TEXTBOX.Text.Length -eq 3 -or $AdvancedMenu_Source_TEXTBOX.Text -match '^[a-zA-Z]:\\+$') {
+				ErrorForm -ErrorLabelText "The recovery directory cannot be the root of the disk.`n`nBecause during recovery, the program will try to delete all files from the disk root.`n`nPlease create a separate recovery directory at the root of the disk, even if it is the only one on the disk." -Height	240 -Width 500
+				return
+			} 
+			$AdvancedMenu_RestoreDirectory_TEXTBOX.Text = $($AdvancedMenu_Source_TEXTBOX.Text)
+		})
+		$AdvancedMenu_RestoreCopySource_BUTTON.Enabled = $Restore_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_RestoreCopySource_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_RestoreCopySource_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_RestoreDirectory_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_RestoreDirectory_BUTTON.Location = New-Object System.Drawing.Point(515, 200)
+		$AdvancedMenu_RestoreDirectory_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_RestoreDirectory_BUTTON.Text = "..."
+		$AdvancedMenu_RestoreDirectory_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_RestoreDirectory_BUTTON.Add_Click({
+			$AdvancedMenu_RestoreDirectory_BUTTON_directoryname = New-Object System.Windows.Forms.FolderBrowserDialog
+			$AdvancedMenu_RestoreDirectory_BUTTON_directoryname.RootFolder = "MyComputer"
+			if ($AdvancedMenu_RestoreDirectory_BUTTON_directoryname.ShowDialog() -eq "OK") {
+				if ($AdvancedMenu_RestoreDirectory_BUTTON_directoryname.SelectedPath.Length -eq 3 -or $AdvancedMenu_RestoreDirectory_BUTTON_directoryname.SelectedPath -match '^[a-zA-Z]:\\+$') {
+					ErrorForm -ErrorLabelText "The recovery directory cannot be the root of the disk.`n`nBecause during recovery, the program will try to delete all files from the disk root.`n`nPlease create a separate recovery directory at the root of the disk, even if it is the only one on the disk." -Height	240 -Width 500
+					return
+				} 
+				if ($($AdvancedMenu_RestoreDirectory_BUTTON_directoryname.SelectedPath)[-1] -eq '\') {
+					$AdvancedMenu_RestoreDirectory_TEXTBOX.Text = "$($AdvancedMenu_RestoreDirectory_BUTTON_directoryname.SelectedPath)"
+				}
+				else {
+					$AdvancedMenu_RestoreDirectory_TEXTBOX.Text = "$($AdvancedMenu_RestoreDirectory_BUTTON_directoryname.SelectedPath)\"
+				}
+			}
+		})
+		$AdvancedMenu_RestoreDirectory_BUTTON.Enabled = $Restore_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_RestoreDirectory_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_RestoreDirectory_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_RestoreDirectory_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_RestoreDirectory_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_RestoreDirectory_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_RestoreDirectory_LABEL.Location = New-Object System.Drawing.Point(560, 200)
+		$AdvancedMenu_RestoreDirectory_LABEL.Size = New-Object System.Drawing.Size(410, 35)
+		$AdvancedMenu_RestoreDirectory_LABEL.Text = "* Restore Directory. Select the directory to restore the backups to. This directory is usually the same as the source directory."
+		$AdvancedMenu_RestoreDirectory_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_RestoreDirectory_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_RestorePoints_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_RestorePoints_TEXTBOX.Location = New-Object System.Drawing.Point(240, 240)
+		$AdvancedMenu_RestorePoints_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_RestorePoints_TEXTBOX.Text = $null
+		$AdvancedMenu_RestorePoints_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_RestorePoints_TEXTBOX.Add_Leave({
+			$AdvancedMenu_RestorePoints_TEXTBOX.Text = $AdvancedMenu_RestorePoints_TEXTBOX.Text -Replace '[\D]'
+			[decimal]$RestorePoints = $($AdvancedMenu_RestorePoints_TEXTBOX.Text)
+			if ($RestorePoints -le 1) {
+				$RestorePoints = 1
+				$AdvancedMenu_RestorePoints_TEXTBOX.Text = $RestorePoints
+			}
+			elseif ($RestorePoints -ge 150000) {
+				$RestorePoints = 150000
+				$AdvancedMenu_RestorePoints_TEXTBOX.Text = $RestorePoints
+			}
+		})
+		$AdvancedMenu_RestorePoints_TEXTBOX.Enabled = $False
+		$AdvancedMenu_RestorePoints_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_RestorePoints_TEXTBOX.Name = 'AdvancedMenu_RestorePoints_TEXTBOX'
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_RestorePoints_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_RestorePoints_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_RestorePoints_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_RestorePoints_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_RestorePoints_LABEL.Location = New-Object System.Drawing.Point(560, 240)
+		$AdvancedMenu_RestorePoints_LABEL.Size = New-Object System.Drawing.Size(410, 35)
+		$AdvancedMenu_RestorePoints_LABEL.Text = "* Restore points. Specify how many backups you would like to keep. This value cannot be less than 1."
+		$AdvancedMenu_RestorePoints_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_RestorePoints_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_Restore_CHECKBOX = New-Object System.Windows.Forms.CheckBox
+		$AdvancedMenu_Restore_CHECKBOX.Checked = $false
+		$AdvancedMenu_Restore_CHECKBOX.Location = New-Object System.Drawing.Point(10, 250)
+		$AdvancedMenu_Restore_CHECKBOX.Size = New-Object System.Drawing.Size(220, 45)
+		$AdvancedMenu_Restore_CHECKBOX.Text = "Restore functionality"
+		$AdvancedMenu_Restore_CHECKBOX.Font = New-Object System.Drawing.Font("Times New Roman", 12)
+		$AdvancedMenu_Restore_CHECKBOX.Add_CheckStateChanged({
+			AdvancedMenuSwitch
+		})
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_Restore_CHECKBOX)
+		#######################################################################################################
+		$AdvancedMenu_BackupDayFilter_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Location = New-Object System.Drawing.Point(240, 280)
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Text = $null
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Add_Leave({
+			$AdvancedMenu_BackupDayFilter_TEXTBOX.Text = $AdvancedMenu_BackupDayFilter_TEXTBOX.Text -Replace '[\D]'
+			[decimal]$BackupDayFilter = $($AdvancedMenu_BackupDayFilter_TEXTBOX.Text)
+			if ($BackupDayFilter -le 1) {
+				$BackupDayFilter = 1
+				$AdvancedMenu_BackupDayFilter_TEXTBOX.Text = $BackupDayFilter
+			}
+			elseif ($BackupDayFilter -ge 150000) {
+				$BackupDayFilter = 150000
+				$AdvancedMenu_BackupDayFilter_TEXTBOX.Text = $BackupDayFilter
+			}
+		})
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Enabled = $False
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_BackupDayFilter_TEXTBOX.Name = 'AdvancedMenu_BackupDayFilter_TEXTBOX'
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_BackupDayFilter_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_BackupDayFilter_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_BackupDayFilter_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_BackupDayFilter_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_BackupDayFilter_LABEL.Location = New-Object System.Drawing.Point(560, 280)
+		$AdvancedMenu_BackupDayFilter_LABEL.Size = New-Object System.Drawing.Size(410, 35)
+		$AdvancedMenu_BackupDayFilter_LABEL.Text = "Day Filter. Enter the number of days to backup recently updated files. For example, entering '7' will backup files modified in the last 7 days."
+		$AdvancedMenu_BackupDayFilter_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_BackupDayFilter_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_Copy_CHECKBOX = New-Object System.Windows.Forms.CheckBox
+		$AdvancedMenu_Copy_CHECKBOX.Checked = $false
+		$AdvancedMenu_Copy_CHECKBOX.Location = New-Object System.Drawing.Point(10, 300)
+		$AdvancedMenu_Copy_CHECKBOX.Size = New-Object System.Drawing.Size(220, 45)
+		$AdvancedMenu_Copy_CHECKBOX.Text = "Copy and Synchronize functionality"
+		$AdvancedMenu_Copy_CHECKBOX.Font = New-Object System.Drawing.Font("Times New Roman", 12)
+		$AdvancedMenu_Copy_CHECKBOX.Add_CheckStateChanged({
+			AdvancedMenuSwitch
+		})
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_Copy_CHECKBOX)
+		#######################################################################################################
+		$AdvancedMenu_7zipExecutable_TEXTBOX = New-Object System.Windows.Forms.TextBox
+		$AdvancedMenu_7zipExecutable_TEXTBOX.Location = New-Object System.Drawing.Point(240, 320)
+		$AdvancedMenu_7zipExecutable_TEXTBOX.Size = New-Object System.Drawing.Size(230, 35)
+		$AdvancedMenu_7zipExecutable_TEXTBOX.Text = $null
+		$AdvancedMenu_7zipExecutable_TEXTBOX.Font = New-Object System.Drawing.Font("Cascadia Mono", 9, [System.Drawing.FontStyle]::Regular)
+		$AdvancedMenu_7zipExecutable_TEXTBOX.ReadOnly = $true
+		$AdvancedMenu_7zipExecutable_TEXTBOX.Enabled = $False
+		$AdvancedMenu_7zipExecutable_TEXTBOX.BackColor = 'DarkGray'
+		$AdvancedMenu_7zipExecutable_TEXTBOX.Name = 'AdvancedMenu_7zipExecutable_TEXTBOX'
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_7zipExecutable_TEXTBOX)
+		#######################################################################################################
+		$AdvancedMenu_7ZipExecutable_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_7ZipExecutable_BUTTON.Location = New-Object System.Drawing.Point(515, 320)
+		$AdvancedMenu_7ZipExecutable_BUTTON.Size = New-Object System.Drawing.Size(40, 35)
+		$AdvancedMenu_7ZipExecutable_BUTTON.Text = "..."
+		$AdvancedMenu_7ZipExecutable_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_7ZipExecutable_BUTTON.Add_Click({
+			$AdvancedMenu_7ZipExecutable_BUTTON_directoryname = New-Object System.Windows.Forms.FolderBrowserDialog
+			$AdvancedMenu_7ZipExecutable_BUTTON_directoryname.RootFolder = "MyComputer"
+			$AdvancedMenu_7ZipExecutable_BUTTON_directoryname.SelectedPath = "C:\Program Files\"
+			if ($AdvancedMenu_7ZipExecutable_BUTTON_directoryname.ShowDialog() -eq "OK") {
+				if ( -not (Test-Path -Path "$($AdvancedMenu_7ZipExecutable_BUTTON_directoryname.SelectedPath)\7z.exe")) {
+					ErrorForm -ErrorLabelText "Wrong directory.`nThere are no 7z.exe in directory`n$($AdvancedMenu_7ZipExecutable_BUTTON_directoryname.SelectedPath)"
+					$AdvancedMenu_7zipExecutable_TEXTBOX.Text = (Get-Command 7z).Source 2>$null
+					return
+				}
+				$AdvancedMenu_7zipExecutable_TEXTBOX.Text = "$($AdvancedMenu_7ZipExecutable_BUTTON_directoryname.SelectedPath)\7z.exe"
+			}
+		})
+		$AdvancedMenu_7ZipExecutable_BUTTON.Enabled = $7zipfolder_true
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_7ZipExecutable_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_7ZipExecutable_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_7zipExecutable_LABEL = New-Object System.Windows.Forms.Label
+		$AdvancedMenu_7zipExecutable_LABEL.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+		$AdvancedMenu_7zipExecutable_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 10)
+		$AdvancedMenu_7zipExecutable_LABEL.Location = New-Object System.Drawing.Point(560, 320)
+		$AdvancedMenu_7zipExecutable_LABEL.Size = New-Object System.Drawing.Size(410, 55)
+		$AdvancedMenu_7zipExecutable_LABEL.Text = "* 7-zip executable Folder. Specify the directory where the 7-zip archiving program is located. Or install it from the official site: `nhttps://www.7-zip.org"
+		$AdvancedMenu_7zipExecutable_LABEL.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_7zipExecutable_LABEL)
+		#######################################################################################################
+		$AdvancedMenu_OK_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_OK_BUTTON.Location = New-Object System.Drawing.Point(12, 380)
+		$AdvancedMenu_OK_BUTTON.Size = New-Object System.Drawing.Size(84, 35)
+		$AdvancedMenu_OK_BUTTON.Text = "Ok"
+		$AdvancedMenu_OK_BUTTON.UseVisualStyleBackColor = $true
+		$AdvancedMenu_OK_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_OK_BUTTON.Add_Click({
+			$FieldValidation = FieldValidation
+			if ($FieldValidation -eq 'error') {
+				return
+			}
+			if ( -not (Test-Path "${Running_Folder}\ProfileList.xml")) {
+				CreateProfileListFile
+			}
+			switch ($ProfileTask) {
+				'Edit' {
+					$AdvancedMenu_FORM.Tag = EditProfile -ProfileXmlObject $ProfileXmlObject -ChosenProfile "$ChosenProfile"
+					$AdvancedMenu_FORM.Close()
+				}
+				'Add' {
+					if ($($AdvancedMenu_FORM.Tag.ProfileName) -eq $($AdvancedMenu_ProfileName_TEXTBOX.Text)) {
+						ErrorForm -ErrorLabelText "A profile with the name: `"$($AdvancedMenu_ProfileName_TEXTBOX.Text)`" already exist`nPlease select a different name for this profile"
+						return "error"
+					}
+					$AdvancedMenu_FORM.Tag = AddProfile -ProfileXmlObject $AdvancedMenu_FORM.Tag
+					$AdvancedMenu_FORM.Close()
+				}
+			}
+		})
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_OK_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_OK_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_ClearConfig_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_ClearConfig_BUTTON.Location = New-Object System.Drawing.Point(414, 380)
+		$AdvancedMenu_ClearConfig_BUTTON.Size = New-Object System.Drawing.Size(154, 35)
+		$AdvancedMenu_ClearConfig_BUTTON.Text = "Clear Config"
+		$AdvancedMenu_ClearConfig_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_ClearConfig_BUTTON.Add_Click({
+			ClearProfile
+		})
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_ClearConfig_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_ClearConfig_BUTTON)
+		#######################################################################################################
+		$AdvancedMenu_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$AdvancedMenu_Exit_BUTTON.Location = New-Object System.Drawing.Point(887, 380)
+		$AdvancedMenu_Exit_BUTTON.Size = New-Object System.Drawing.Size(84, 35)
+		$AdvancedMenu_Exit_BUTTON.Text = "Exit"
+		$AdvancedMenu_Exit_BUTTON.UseVisualStyleBackColor = $true
+		$AdvancedMenu_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$AdvancedMenu_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$AdvancedMenu_FORM.AcceptButton = $AdvancedMenu_Exit_BUTTON
+		$AdvancedMenu_FORM.Controls.Add($AdvancedMenu_Exit_BUTTON)
+		#######################################################################################################
+		switch ($ProfileTask) {
+			'Add' {
+				ClearProfile
+			}
+			'Edit' {
+				$AdvancedMenu_Backup_CHECKBOX.Checked = $(($AdvancedMenu_FORM.Tag | Where-Object { $_.ProfileName -eq "$ChosenProfile" }).BackupCheckboxStatus)
+				$AdvancedMenu_Restore_CHECKBOX.Checked = $(($AdvancedMenu_FORM.Tag | Where-Object { $_.ProfileName -eq "$ChosenProfile" }).RestoreCheckboxStatus)
+				$AdvancedMenu_Copy_CHECKBOX.Checked = $(($AdvancedMenu_FORM.Tag | Where-Object { $_.ProfileName -eq "$ChosenProfile" }).CopyCheckboxStatus)
+				$AdvancedMenu_BackupName_TEXTBOX.Text = "$(($AdvancedMenu_FORM.Tag|Where-Object {$_.ProfileName -eq "$ChosenProfile"}).BackupName)"
+				$AdvancedMenu_ProfileName_TEXTBOX.Text = "$(($AdvancedMenu_FORM.Tag|Where-Object {$_.ProfileName -eq "$ChosenProfile"}).ProfileName)"
+				$AdvancedMenu_Source_TEXTBOX.Text = "$(($AdvancedMenu_FORM.Tag|Where-Object {$_.ProfileName -eq "$ChosenProfile"}).Source)"
+				$AdvancedMenu_BackupDirectory_TEXTBOX.Text = "$(($AdvancedMenu_FORM.Tag|Where-Object {$_.ProfileName -eq "$ChosenProfile"}).BackupDirectory)"
+				$AdvancedMenu_SecondBackupDirectory_TEXTBOX.Text = "$(($AdvancedMenu_FORM.Tag|Where-Object {$_.ProfileName -eq "$ChosenProfile"}).SecondBackupDirectory)"
+				$AdvancedMenu_RestoreDirectory_TEXTBOX.Text = "$(($AdvancedMenu_FORM.Tag|Where-Object {$_.ProfileName -eq "$ChosenProfile"}).RestoreDirectory)"
+				$AdvancedMenu_RestorePoints_TEXTBOX.Text = if ($(($AdvancedMenu_FORM.Tag | Where-Object { $_.ProfileName -eq "$ChosenProfile" }).RestorePoints) -eq 0) { $null } else { $(($AdvancedMenu_FORM.Tag | Where-Object { $_.ProfileName -eq "$ChosenProfile" }).RestorePoints) }
+				$AdvancedMenu_BackupDayFilter_TEXTBOX.Text = if ($(($AdvancedMenu_FORM.Tag | Where-Object { $_.ProfileName -eq "$ChosenProfile" }).BackupDayFilter) -eq 0) { $null } else { $(($AdvancedMenu_FORM.Tag | Where-Object { $_.ProfileName -eq "$ChosenProfile" }).BackupDayFilter) }
+				$AdvancedMenu_7zipExecutable_TEXTBOX.Text = "$(($AdvancedMenu_FORM.Tag|Where-Object {$_.ProfileName -eq "$ChosenProfile"}).Executable_7z)"
+			}
+			Default {
+				AdvancedMenuSwitch
+			}
+		}
+		$AdvancedMenu_FORM.ShowDialog() > $null
+		return ,$AdvancedMenu_FORM.Tag
+	}
+
+	function MainMenu {
+		param (
+			$ProfileXmlObject
+		)
+
+		$FormsVariables = FormsVariables
+		#######################################################################################################
+		$MainMenu_FORM = New-Object System.Windows.Forms.Form
+		$MainMenu_FORM.Text = $FormsVariables.FormsText
+		$MainMenu_FORM.Font = $FormsVariables.FormsFont
+		$MainMenu_FORM.BackColor = $FormsVariables.FormsBackColor
+		$MainMenu_FORM.ForeColor = $FormsVariables.FormsForeColor
+		$MainMenu_FORM.StartPosition = $FormsVariables.FormsStartPosition
+		$MainMenu_FORM.FormBorderStyle = $FormsVariables.FormsBorderStyle
+		$MainMenu_FORM.ClientSize = New-Object System.Drawing.Size(430, 245)
+		$MainMenu_FORM.Tag = $ProfileXmlObject
+		#######################################################################################################
+		$MainMenu_First_LABEL = New-Object System.Windows.Forms.Label
+		$MainMenu_First_LABEL.Location = New-Object System.Drawing.Point(10, 10)
+		$MainMenu_First_LABEL.Size = New-Object System.Drawing.Size(410, 40)
+		$MainMenu_First_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 14, [System.Drawing.FontStyle]::Bold)
+		$MainMenu_First_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$MainMenu_First_LABEL.Text = "Welcome to the`nPowerShell 7z Backup and Restore Script`nPlease select one of the options below."
+		$MainMenu_FORM.Controls.Add($MainMenu_First_LABEL)
+		#######################################################################################################
+		$MainMenu_Second_LABEL = New-Object System.Windows.Forms.Label
+		$MainMenu_Second_LABEL.Location = New-Object System.Drawing.Point(10, 50)
+		$MainMenu_Second_LABEL.Size = New-Object System.Drawing.Size(410, 20)
+		$MainMenu_Second_LABEL.Font = New-Object System.Drawing.Font("Times New Roman", 12, [System.Drawing.FontStyle]::Regular)
+		$MainMenu_Second_LABEL.TextAlign = $FormsVariables.FormsTextAlign
+		$MainMenu_Second_LABEL.Text = "Please select one of the options below"
+		$MainMenu_FORM.Controls.Add($MainMenu_Second_LABEL)
+		#######################################################################################################
+		$MainMenu_Backup_BUTTON = New-Object System.Windows.Forms.Button
+		$MainMenu_Backup_BUTTON.Location = New-Object System.Drawing.Point(10, 75)
+		$MainMenu_Backup_BUTTON.Size = New-Object System.Drawing.Size(200, 40)
+		$MainMenu_Backup_BUTTON.Text = 'Backup Menu'
+		$MainMenu_Backup_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$MainMenu_Backup_BUTTON.Add_Click({
+			BackupMenu -ProfileXmlObject $($MainMenu_FORM.Tag | Where-Object { $_.BackupCheckboxStatus -or $_.CopyCheckboxStatus })
+		})
+		$MainMenu_FORM.AcceptButton = $MainMenu_Backup_BUTTON
+		$MainMenu_FORM.Controls.Add($MainMenu_Backup_BUTTON)
+		#######################################################################################################
+		$MainMenu_Restore_BUTTON = New-Object System.Windows.Forms.Button
+		$MainMenu_Restore_BUTTON.Location = New-Object System.Drawing.Point(215, 75)
+		$MainMenu_Restore_BUTTON.Size = New-Object System.Drawing.Size(200, 40)
+		$MainMenu_Restore_BUTTON.Text = 'Restore Menu'
+		$MainMenu_Restore_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$MainMenu_Restore_BUTTON.Add_Click({
+			RestoreMenu -ProfileXmlObject $($MainMenu_FORM.Tag | Where-Object { $_.RestoreCheckboxStatus })
+		})
+		$MainMenu_FORM.AcceptButton = $MainMenu_Restore_BUTTON
+		$MainMenu_FORM.Controls.Add($MainMenu_Restore_BUTTON)
+		#######################################################################################################
+		$MainMenu_Update_BUTTON = New-Object System.Windows.Forms.Button
+		$MainMenu_Update_BUTTON.Location = New-Object System.Drawing.Point(10, 120)
+		$MainMenu_Update_BUTTON.Size = New-Object System.Drawing.Size(410, 35)
+		$MainMenu_Update_BUTTON.Text = 'Check for Updates?'
+		$MainMenu_Update_BUTTON.Enabled = $true
+		$MainMenu_Update_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$MainMenu_Update_BUTTON.Add_Click({
+			$MainMenu_Update_BUTTON.Tag = CheckUpdate
+			if ($MainMenu_Update_BUTTON.Tag.ScriptUpdate -eq $true){
+				UpdateScript -ScriptPath $ScriptPath -GitScriptBody $GitScriptBody
+			}
+		})
+		$MainMenu_FORM.AcceptButton = $MainMenu_Update_BUTTON
+		$MainMenu_FORM.Controls.Add($MainMenu_Update_BUTTON)
+		#######################################################################################################
+		$MainMenu_Profiles_BUTTON = New-Object System.Windows.Forms.Button
+		$MainMenu_Profiles_BUTTON.Location = New-Object System.Drawing.Point(10, 160)
+		$MainMenu_Profiles_BUTTON.Size = New-Object System.Drawing.Size(410, 35)
+		$MainMenu_Profiles_BUTTON.Text = 'Profiles settings'
+		$MainMenu_Profiles_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$MainMenu_Profiles_BUTTON.Add_Click({
+			$MainMenu_FORM.Tag = ProfileMenu -ProfileXmlObject $MainMenu_FORM.Tag
+		})
+		$MainMenu_FORM.AcceptButton = $MainMenu_Profiles_BUTTON
+		$MainMenu_FORM.Controls.Add($MainMenu_Profiles_BUTTON)
+		#######################################################################################################
+		$MainMenu_Exit_BUTTON = New-Object System.Windows.Forms.Button
+		$MainMenu_Exit_BUTTON.Location = New-Object System.Drawing.Point(165, 200)
+		$MainMenu_Exit_BUTTON.Size = New-Object System.Drawing.Size(100, 35)
+		$MainMenu_Exit_BUTTON.Text = 'Exit'
+		$MainMenu_Exit_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
+		$MainMenu_Exit_BUTTON.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+		$MainMenu_FORM.AcceptButton = $MainMenu_Exit_BUTTON
+		$MainMenu_FORM.Controls.Add($MainMenu_Exit_BUTTON)
+		######################################################################################################
+		$MainMenu_FORM.ShowDialog() > $null
+	}
+	#FUNCTIONS_FORMS#################################################################################END
+	#SCRIPT_BODY#####################################################################################
+	$ProfileXML = ProfileImporter
+	$Profile7zExecCheck = Profile7zExecCheck -ProfileXmlObject $ProfileXML
+	$Attention = "Please run the script at least once without parameters and fill in all required fields.`nAttention - if you have modified this script yourself, you have no guarantees that it works exactly as the author intended."
+
+	if (-not (Test-Path "${Running_Folder}\ProfileList.xml") -and $ProfileName -and $AutomationType) {
+		Write-Output $Attention
+		exit
+	} elseif ((Test-Path "${Running_Folder}\ProfileList.xml") -and $ProfileName -and $AutomationType) {
+		foreach ($Profile in $Profiles_from_Pipeline) {
+			$MessageStart = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is running"
+			$MessageFinish = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished"
+			$MessageError = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished with errors"
+			try {
+				Write-Output "$($MessageStart.SingleMessage)`n`n"
+				CMDAutomationTypeChecker -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" }) -ProfileXmlObject $ProfileXML -Automation_ProfileName $Profile
+			}
+			catch {
+				Write-Output "$_"
+				Write-Output "$($MessageError.SingleMessage)`n`n"
+				Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
+				continue
+			}
+			CMDAutomationTypeExecutor -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" })
+			Write-Output "$($MessageFinish.SingleMessage)`n`n"
+			Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
+		}
+		exit
+	}
+
+	if (-not (Test-Path "${Running_Folder}\ProfileList.xml")) {
+		$ProfileXML = AdvancedMenu
+	} elseif (-not ([string]::IsNullOrWhiteSpace($Profile7zExecCheck))) {
+		$No7zip = No7zip -ProfileXmlObject $ProfileXML -Profile7zExecCheck $Profile7zExecCheck
+		if ($No7zip.Count -eq 0) {
+			exit
+		}
+		else {
+			$ProfileXML = $No7zip
+		}
+	}
+
+	if (Test-Path "${Running_Folder}\ProfileList.xml") {
+		MainMenu -ProfileXmlObject $ProfileXML
+	}
 }
-elseif ( "SimpleBackup" -eq $AutomationType ){
-	if (check_all_params){
-		Write-Output "$Attention" 
-	}
-	else{
-		check_directories
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			7z_save
-		}
-		else{
-			7z_save_SecondBackupFolder
-		}
-	}
-}
-elseif ( "TimeFilteredBackup" -eq $AutomationType ){
-	if (check_all_params){
-		Write-Output "$Attention"
-	}
-	else{
-		check_directories
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			Backup_According_to_day_filter
-		}
-		else{
-			Backup_According_to_day_filter_SecondBackupFolder
-		}
-	}
-}
-elseif ( "Copy" -eq $AutomationType ){
-	if (check_all_params){
-		Write-Output "$Attention"
-	}
-	else{
-		check_directories
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			ShellCopy
-		}
-		else{
-			ShellCopy_SecondBackupFolder
-		}
-	}
-}
-elseif ( "Sync" -eq $AutomationType ){
-	if (check_all_params){
-		Write-Output "$Attention"
-	}
-	else{
-		check_directories
-		If ([string]::IsNullOrEmpty($SecondBackupFolder)){
-			SyncCopy
-		}
-		else{
-			SyncCopy_SecondBackupFolder
-		}
-	}
-}
+#SCRIPT_BODY#####################################################################################END
