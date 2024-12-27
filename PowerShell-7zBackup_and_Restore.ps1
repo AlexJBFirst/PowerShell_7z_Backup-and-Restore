@@ -30,7 +30,7 @@ End {
 	Add-Type -AssemblyName System.Drawing
 	#PARAMS########################################################################################END
 	#IMPORTANT_VARIABLES###########################################################################
-	$ScriptVersion = [System.Version]::Parse("2.0.1")
+	$ScriptVersion = [System.Version]::Parse("2.0.2")
 	$Path_to_Script = $MyInvocation.MyCommand.Path
 	$Running_Folder = Split-Path -Parent $Path_to_Script
 	$ScriptPath = $MyInvocation.MyCommand.Path
@@ -1038,9 +1038,9 @@ End {
 			$MainMenu_Update_BUTTON.Text = 'Nothing to update'
 			$MainMenu_Update_BUTTON.Enabled = $false
 			return
-		}
+		} 
 		Invoke-Expression $MatchedVersion
-		if ( $ScriptVersionScript -ge $ScriptVersion ) {
+		if ($ScriptVersionScript -ge $ScriptVersion) {
 			$MainMenu_Update_BUTTON.Text = 'Nothing to update'
 			$MainMenu_Update_BUTTON.Enabled = $false
 		} 
@@ -1065,7 +1065,7 @@ End {
 			$MainMenu_Update_BUTTON.Text = 'Cannot connect to GITHUB'
 			return
 		}
-		Set-Content -Path "$ScriptPath" -Value "$GitScriptBody"
+		Write-Output $GitScriptBody > "$ScriptPath"
 		ErrorForm -ErrorLabelText "Script Updated, exiting... Please restart the Script"
 		$MainMenu_FORM.Close()
 	}
@@ -2979,10 +2979,10 @@ End {
 		$MainMenu_Update_BUTTON.Enabled = $true
 		$MainMenu_Update_BUTTON.TextAlign = $FormsVariables.FormsTextAlign
 		$MainMenu_Update_BUTTON.Add_Click({
-			$MainMenu_Update_BUTTON.Tag = CheckUpdate
 			if ($MainMenu_Update_BUTTON.Tag.ScriptUpdate -eq $true){
 				UpdateScript -ScriptPath $ScriptPath -GitScriptBody $GitScriptBody
 			}
+			$MainMenu_Update_BUTTON.Tag = CheckUpdate
 		})
 		$MainMenu_FORM.AcceptButton = $MainMenu_Update_BUTTON
 		$MainMenu_FORM.Controls.Add($MainMenu_Update_BUTTON)
