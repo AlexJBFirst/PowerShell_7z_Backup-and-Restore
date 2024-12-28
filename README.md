@@ -200,6 +200,29 @@ If you need the logging functionality, use the 'OutputLogFileName' property and 
 
 The logging file will be created in the same directory as the script.  
 
+## Task scheduler: 
+
+When using the Task Scheduler, specify in the "Program/Script" field:    
+
+    C:\Program Files\PowerShell\7\pwsh.exe  
+
+or  
+
+    powershell  
+
+And in the “Add arguments (optional)” field, specify the following:  
+
+    -WindowStyle hidden -command "& PATH_TO_SCRIPT\PowerShell-7zBackup_and_Restore.ps1 -AutomationType TYPE -ProfileName PROFILE1, PROFILE2, 'PROFILE N' -OutputLogFileName 'Log.txt'"
+
+Where:  
+
+- -WindowStyle hidden - to automatically minimize the window;  
+- -command - to run the script;  
+- PATH_TO_SCRIPT - the full path to the script;  
+- TYPE - the type of your work;  
+- PROFILE1, PROFILE2, 'PROFILE N' - names of the profiles created in the GUI;  
+- Log.txt - the name of your log file  
+
 ### Enjoy!  
 
 # If you want to support me  
