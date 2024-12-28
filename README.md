@@ -17,6 +17,7 @@ The PowerShell_7z_Backup-and-Restore script will allow you to backup your files 
 - Can be used in both graphical and console modes (after creating profiles for automation)  
 - Can be used to create archives or copies of directories (files) on a schedule (you need to create tasks in the task scheduler)  
 - Can accept profile names as input to run automated tasks for a batch of profiles, from properties, and from a pipeline  
+- Can output the terminal task log to a log file with the desired name  
 
 ### Prerequisites  
 
@@ -174,6 +175,9 @@ AutomationType can take on the following parameters:
 - Copy  
 - Sync  
 
+There are alse one optional parameter:  
+- OutputLogFileName  
+
 ProfileName, when entering a non-existent profile, will display a message with all existing profiles in your saved list  
 
 Examples of commands for creating archive copies via the terminal:  
@@ -189,6 +193,12 @@ or
     'test','1','2','another profile' | .\PowerShell-7zBackup_and_Restore.ps1 -AutomationType SimpleBackup
 
 The recovery function is not supported in terminal mode!!!  
+
+If you need the logging functionality, use the 'OutputLogFileName' property and specify a name for the log file. The logs will be overwritten each time the script is run.  
+
+    .\PowerShell-7zBackup_and_Restore.ps1 -AutomationType SimpleBackup -ProfileName test,1,2,'another profile' -OutputLogFileName 'Log.txt'  
+
+The logging file will be created in the same directory as the script.  
 
 ### Enjoy!  
 
