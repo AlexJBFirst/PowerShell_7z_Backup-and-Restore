@@ -6,7 +6,10 @@ Param(
 
 	[Parameter(ValueFromPipeline, HelpMessage = "If you have already opened this script in the GUI, you can use the selected saved profile as the main profile for AutomationType tasks")]
 	[ValidateNotNull()]
-	[string[]]$ProfileName
+	[string[]]$ProfileName,
+
+	[Parameter(HelpMessage = "For writing logs to a file. It is used only for terminal tasks.")]
+	[string]$OutputLogFileName
 )
 
 Process {
@@ -30,7 +33,7 @@ End {
 	Add-Type -AssemblyName System.Drawing
 	#PARAMS########################################################################################END
 	#IMPORTANT_VARIABLES###########################################################################
-	$ScriptVersion = [System.Version]::Parse("2.0.2")
+	$ScriptVersion = [System.Version]::Parse("2.0.4")
 	$Path_to_Script = $MyInvocation.MyCommand.Path
 	$Running_Folder = Split-Path -Parent $Path_to_Script
 	$ScriptPath = $MyInvocation.MyCommand.Path
@@ -326,6 +329,27 @@ End {
 		}
 	
 		return $Message
+	}
+
+	function CMDrun {
+		foreach ($Profile in $Profiles_from_Pipeline) {
+			$MessageStart = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is running"
+			$MessageFinish = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished"
+			$MessageError = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished with errors"
+			try {
+				Write-Output "$($MessageStart.SingleMessage)`n`n"
+				CMDAutomationTypeChecker -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" }) -ProfileXmlObject $ProfileXML -Automation_ProfileName $Profile
+			}
+			catch {
+				Write-Output "$_"
+				Write-Output "$($MessageError.SingleMessage)`n`n"
+				Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
+				continue
+			}
+			CMDAutomationTypeExecutor -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" })
+			Write-Output "$($MessageFinish.SingleMessage)`n`n"
+			Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
+		}
 	}
 	#FUNCTION_SCRIPT_BODY##########################################################################END
 	#FUNCTIONS_ADVANCED_MENU#######################################################################
@@ -3019,23 +3043,10 @@ End {
 		Write-Output $Attention
 		exit
 	} elseif ((Test-Path "${Running_Folder}\ProfileList.xml") -and $ProfileName -and $AutomationType) {
-		foreach ($Profile in $Profiles_from_Pipeline) {
-			$MessageStart = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is running"
-			$MessageFinish = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished"
-			$MessageError = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished with errors"
-			try {
-				Write-Output "$($MessageStart.SingleMessage)`n`n"
-				CMDAutomationTypeChecker -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" }) -ProfileXmlObject $ProfileXML -Automation_ProfileName $Profile
-			}
-			catch {
-				Write-Output "$_"
-				Write-Output "$($MessageError.SingleMessage)`n`n"
-				Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
-				continue
-			}
-			CMDAutomationTypeExecutor -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" })
-			Write-Output "$($MessageFinish.SingleMessage)`n`n"
-			Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
+		if ($OutputLogFileName){
+			CMDrun | Tee-Object -FilePath ${Running_Folder}\$OutputLogFileName
+		}	else {
+			CMDrun
 		}
 		exit
 	}
