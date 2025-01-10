@@ -33,7 +33,7 @@ End {
 	Add-Type -AssemblyName System.Drawing
 	#PARAMS########################################################################################END
 	#IMPORTANT_VARIABLES###########################################################################
-	$ScriptVersion = [System.Version]::Parse("2.0.4")
+	$ScriptVersion = [System.Version]::Parse("2.0.5")
 	$Path_to_Script = $MyInvocation.MyCommand.Path
 	$Running_Folder = Split-Path -Parent $Path_to_Script
 	$ScriptPath = $MyInvocation.MyCommand.Path
