@@ -33,7 +33,7 @@ End {
 	Add-Type -AssemblyName System.Drawing
 	#PARAMS########################################################################################END
 	#IMPORTANT_VARIABLES###########################################################################
-	$ScriptVersion = [System.Version]::Parse("2.0.3")
+	$ScriptVersion = [System.Version]::Parse("2.0.4")
 	$Path_to_Script = $MyInvocation.MyCommand.Path
 	$Running_Folder = Split-Path -Parent $Path_to_Script
 	$ScriptPath = $MyInvocation.MyCommand.Path
@@ -312,7 +312,7 @@ End {
 		)
 
 		if ($SingleMessage) {
-			$SingleMessageText = '#' * 5 + $SingleMessage + '#' * 5 
+			$SingleMessageText = '+' * [math]::Floor((79 - $SingleMessage.Length) / 2) + $SingleMessage + '+' * [math]::Ceiling((79 - $SingleMessage.Length) / 2)
 		}
 		if ($JobStartingMessage) {
 			$body_start = '#' * [math]::Floor((79 - $JobStartingMessage.Length) / 2) + $JobStartingMessage + '#' * [math]::Ceiling((79 - $JobStartingMessage.Length) / 2)
@@ -337,18 +337,16 @@ End {
 			$MessageFinish = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished"
 			$MessageError = TextFiller -SingleMessage "$AutomationType Job for the profile - $Profile is finished with errors"
 			try {
-				Write-Output "$($MessageStart.SingleMessage)`n`n"
+				Write-Output "$($MessageStart.SingleMessage)"
 				CMDAutomationTypeChecker -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" }) -ProfileXmlObject $ProfileXML -Automation_ProfileName $Profile
 			}
 			catch {
 				Write-Output "$_"
-				Write-Output "$($MessageError.SingleMessage)`n`n"
-				Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
+				Write-Output "$($MessageError.SingleMessage)"
 				continue
 			}
 			CMDAutomationTypeExecutor -AutomationType $AutomationType -ProfileObject ($ProfileXML | Where-Object { $_.ProfileName -eq "$Profile" })
-			Write-Output "$($MessageFinish.SingleMessage)`n`n"
-			Write-Output "`n╔$('═'*77)╗`n╠$('╬'*77)╣`n╚$('═'*77)╝`n`n"
+			Write-Output "$($MessageFinish.SingleMessage)`n`n`n"
 		}
 	}
 	#FUNCTION_SCRIPT_BODY##########################################################################END
@@ -618,7 +616,7 @@ End {
 			$MessageSecondDir = $null
 		)
 
-		$Time = (Get-Date -format "dd/MM/yyyy/HH/mm/ss")
+		$Time = (Get-Date -UFormat "%d.%m.%Y.%H.%M.%S")
 		$7zBackupName = -join ("$BackupDirectory", "$BackupName", '_', "$Time", '.7z')
 		$RobocopyBackupName = -join ("$BackupName", '_', "$Time", '.7z')
 		$SecondBackupDirectoryName = -join ("$SecondBackupDirectory", "$BackupName", '_', "$Time", '.7z')
