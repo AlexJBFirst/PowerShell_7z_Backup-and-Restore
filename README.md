@@ -72,9 +72,28 @@ The PowerShell_7z_Backup-and-Restore script will allow you to backup your files 
 		
        Unblock-File "$env:UserProfile\Downloads\PowerShell-7zBackup_and_Restore.ps1"
 
-   If using a different file path, specify your path instead of “$env:UserProfile\Downloads\”  
+   If using a different file path, specify your path instead of “$env:UserProfile\Downloads\”
 
-2. **This script has 2 forms of interaction:**  
+   After that, you can create a shortcut using these commands in your terminal
+
+    >$ShortcutExecutable = "powershell.exe"  #OR "pwsh.exe"  
+    >$WorkingDir = "\`"$env:UserProfile\Downloads\`""   
+    >$ShortcutDestination = "$env:UserProfile\Desktop\PowerShell_7z_Backup-and-Restore.lnk"   
+    >$ShortcutArguments = "-WindowStyle hidden -file \`"$env:UserProfile\Downloads\PowerShell-7zBackup_and_Restore.ps1\`""   
+    >
+    >
+    >$WshShell = New-Object -COMObject WScript.Shell   
+    >$Shortcut = $WshShell.CreateShortcut($ShortcutDestination)   
+    >$Shortcut.TargetPath = "$ShortcutExecutable"   
+    >$Shortcut.Arguments = $ShortcutArguments  
+    >$Shortcut.WorkingDirectory = $WorkingDir  
+    >$Shortcut.Save()   
+
+   Or you can create your own shortcut and specify the path to your powershell in the target field and the following as arguments:
+
+    >-WindowStyle hidden -file \`"{{ FULL_PATH_TO_SCRIPT }}\PowerShell-7zBackup_and_Restore.ps1\`"
+
+3. **This script has 2 forms of interaction:**  
 
    - Graphical;  
    - Terminal.   
@@ -212,13 +231,13 @@ or
 
 And in the “Add arguments (optional)” field, specify the following:  
 
-    -WindowStyle hidden -command "& PATH_TO_SCRIPT\PowerShell-7zBackup_and_Restore.ps1 -AutomationType TYPE -ProfileName PROFILE1, PROFILE2, 'PROFILE N' -OutputLogFileName 'Log.txt'"
+    -WindowStyle hidden -command "& {{ FULL_PATH_TO_SCRIPT }}\PowerShell-7zBackup_and_Restore.ps1 -AutomationType TYPE -ProfileName {{ PROFILE1 }}, {{ PROFILE2 }}, {{ 'PROFILE N' }} -OutputLogFileName 'Log.txt'"
 
 Where:  
 
 - -WindowStyle hidden - to automatically minimize the window;  
 - -command - to run the script;  
-- PATH_TO_SCRIPT - the full path to the script;  
+- FULL_PATH_TO_SCRIPT - the full path to the script;  
 - TYPE - the type of your work;  
 - PROFILE1, PROFILE2, 'PROFILE N' - names of the profiles created in the GUI;  
 - Log.txt - the name of your log file  
